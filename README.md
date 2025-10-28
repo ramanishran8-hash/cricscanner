@@ -18,3 +18,4 @@ A modern, dark-mode cricket companion built with TailwindCSS and Luxon. Cricscan
 ## Getting started
 
 No build step is required. Open any of the HTML files in a modern browser to explore the experience. Changes made via the admin dashboard are saved to your browser's `localStorage`.
+🚀 First deployment test
