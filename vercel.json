@@ -1,15 +1,15 @@
 {
   "routes": [
     {
-      "src": "/private/(.*)",
+      "src": "/private/admin.html",
       "has": [
         {
-          "type": "header",
-          "key": "x-cricscanner-key",
-          "value": "XYZ123"
+          "type": "query",
+          "key": "key",
+          "value": "RAMAN2025"
         }
       ],
-      "dest": "/private/$1"
+      "dest": "/private/admin.html"
     },
     {
       "src": "/private/(.*)",

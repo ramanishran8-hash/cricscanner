@@ -23,17 +23,17 @@
     </script>
     <script>
       (function enforcePrivateAccess() {
-        const REQUIRED_KEY = 'XYZ123';
+        const REQUIRED_KEY = 'RAMAN2025';
         const params = new URLSearchParams(window.location.search);
         if (params.get('key') !== REQUIRED_KEY) {
-          alert('Access denied');
+          alert('Access Denied');
           window.location.href = '../public/index.html';
           return;
         }
 
-        const pass = prompt('Enter admin password:');
-        if (pass !== 'cric@admin123') {
-          alert('Access denied');
+        const pass = prompt('Enter admin password');
+        if (pass !== 'Raman@AIsecure') {
+          alert('Access Denied');
           window.location.href = '../public/index.html';
         }
       })();
