@@ -1,0 +1,9 @@
+/* Cricscanner custom styles */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #030712;
+}

@@ -65,8 +65,20 @@ const defaultData = {
 };
 
 const SOURCE_PATHS = {
-  tournaments: ['/data/tournaments.json', './data/tournaments.json', '../data/tournaments.json'],
-  matches: ['/data/matches.json', './data/matches.json', '../data/matches.json'],
+  tournaments: [
+    '/data/tournaments.json',
+    './data/tournaments.json',
+    '../data/tournaments.json',
+    '/public/data/tournaments.json',
+    '../public/data/tournaments.json',
+  ],
+  matches: [
+    '/data/matches.json',
+    './data/matches.json',
+    '../data/matches.json',
+    '/public/data/matches.json',
+    '../public/data/matches.json',
+  ],
 };
 
 let memoryCache = null;
