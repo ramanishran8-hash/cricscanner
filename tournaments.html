@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cricscanner Tournaments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['\"Inter\"', 'system-ui', 'sans-serif'],
+            },
+            boxShadow: {
+              glow: '0 0 40px -10px rgba(34, 211, 238, 0.45)',
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
+    <script src="js/storage.js" defer></script>
+  </head>
+  <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
+    <header class="border-b border-slate-800/60 bg-slate-950/70 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.35em] text-emerald-200/80">Cricscanner Atlas</p>
+          <h1 class="mt-2 text-4xl font-bold text-white">Tournaments & Fixtures</h1>
+          <p class="mt-3 max-w-2xl text-sm text-slate-300">
+            Explore every competition on Cricscanner. Tap a tournament to reveal fixtures, participating teams, and the latest points snapshot.
+          </p>
+        </div>
+        <a href="index.html" class="text-sm font-semibold text-emerald-300 transition hover:text-emerald-200">← Back to matches</a>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-6 py-12">
+      <section>
+        <div id="tournamentGrid" class="grid gap-8 md:grid-cols-2"></div>
+        <p id="emptyTournaments" class="hidden rounded-3xl border border-slate-800/60 bg-slate-900/50 p-10 text-center text-sm text-slate-400">
+          No tournaments yet. Head to the admin dashboard to create one.
+        </p>
+      </section>
+    </main>
+
+    <footer class="border-t border-slate-800/60 bg-slate-950/70">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <p>Cricscanner • Tournaments updated live</p>
+        <p>Powered by TailwindCSS and Luxon</p>
+      </div>
+    </footer>
+
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const { DateTime } = luxon;
+      const tournamentGrid = document.getElementById('tournamentGrid');
+      const emptyTournaments = document.getElementById('emptyTournaments');
+
+      function resolveStatus(match, now) {
+        const start = DateTime.fromISO(match.startTime, { zone: 'America/New_York' });
+        if (!start.isValid) return 'upcoming';
+        const end = match.endTime ? DateTime.fromISO(match.endTime, { zone: 'America/New_York' }) : null;
+        if (now < start) return 'upcoming';
+        if (end && now > end) return 'completed';
+        if (!end && now > start.plus({ hours: 4 })) return 'completed';
+        return 'live';
+      }
+
+      function formatDateTime(dateISO) {
+        if (!dateISO) return '—';
+        const dt = DateTime.fromISO(dateISO, { zone: 'America/New_York' });
+        if (!dt.isValid) return '—';
+        return dt.toFormat("ccc, LLL dd • hh:mm a 'ET'");
+      }
+
+      function buildPointsTable(pointsTable = []) {
+        if (!pointsTable.length) {
+          return '<p class="text-sm text-slate-400">Points table coming soon.</p>';
+        }
+        const rows = pointsTable
+          .map((entry, index) => `
+            <tr class="border-b border-slate-800/60 last:border-0">
+              <td class="px-4 py-2 text-left text-sm text-slate-200">${index + 1}</td>
+              <td class="px-4 py-2 text-left text-sm text-slate-200">${entry.team}</td>
+              <td class="px-4 py-2 text-right text-sm font-semibold text-emerald-300">${entry.points}</td>
+            </tr>
+          `)
+          .join('');
+        return `
+          <div class="mt-6 overflow-hidden rounded-2xl border border-slate-800/60">
+            <table class="min-w-full divide-y divide-slate-800/60">
+              <thead class="bg-slate-900/80 text-xs uppercase tracking-[0.35em] text-slate-400">
+                <tr>
+                  <th class="px-4 py-2 text-left">Pos</th>
+                  <th class="px-4 py-2 text-left">Team</th>
+                  <th class="px-4 py-2 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody class="bg-slate-950/60">${rows}</tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      async function renderTournaments() {
+        const { tournaments, matches } = await window.CricStorage.getData();
+        tournamentGrid.innerHTML = '';
+        if (!tournaments.length) {
+          emptyTournaments.classList.remove('hidden');
+          return;
+        }
+        emptyTournaments.classList.add('hidden');
+        const matchesByTournament = matches.reduce((acc, match) => {
+          acc[match.tournamentId] = acc[match.tournamentId] || [];
+          acc[match.tournamentId].push(match);
+          return acc;
+        }, {});
+
+        const now = DateTime.now().setZone('America/New_York');
+
+        tournaments.forEach((tournament) => {
+          const tiedMatches = (matchesByTournament[tournament.id] || []).slice();
+          tiedMatches.sort((a, b) => DateTime.fromISO(a.startTime) - DateTime.fromISO(b.startTime));
+          const teams = new Set();
+          tiedMatches.forEach((match) => {
+            teams.add(match.teamA);
+            teams.add(match.teamB);
+          });
+
+          const matchList = tiedMatches
+            .map((match) => {
+              const status = resolveStatus(match, now);
+              const badgeClasses =
+                status === 'live'
+                  ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-200 shadow-glow'
+                  : status === 'completed'
+                  ? 'border-sky-400/40 bg-sky-400/10 text-sky-200'
+                  : 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+              const scores = match.scoreA || match.scoreB ? `${match.teamA}: ${match.scoreA || '—'} • ${match.teamB}: ${match.scoreB || '—'}` : 'Scores pending';
+              return `
+                <li class="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-5">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h4 class="text-lg font-semibold text-white">${match.teamA} <span class="text-slate-500">vs</span> ${match.teamB}</h4>
+                      <p class="mt-1 text-sm text-slate-300">${formatDateTime(match.startTime)}${match.endTime ? ` → ${formatDateTime(match.endTime)}` : ''}</p>
+                      <p class="mt-2 text-sm text-slate-400">${match.location || tournament.location || 'Venue TBA'}</p>
+                      <p class="mt-2 text-sm text-slate-200">${scores}</p>
+                    </div>
+                    <span class="rounded-full border ${badgeClasses} px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em]">${status}</span>
+                  </div>
+                </li>
+              `;
+            })
+            .join('');
+
+          const card = document.createElement('article');
+          card.className = 'group overflow-hidden rounded-3xl border border-slate-800/60 bg-slate-900/60 p-8 shadow-lg shadow-blue-900/20 transition hover:-translate-y-1 hover:border-emerald-400/60';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-[0.35em] text-emerald-200/70">${tournament.location || 'Global venues'}</p>
+                <h2 class="mt-2 text-2xl font-semibold text-white">${tournament.name}</h2>
+                ${tournament.description ? `<p class="mt-3 text-sm text-slate-300">${tournament.description}</p>` : ''}
+                <p class="mt-4 text-xs uppercase tracking-[0.35em] text-slate-500">Teams</p>
+                <p class="mt-1 text-sm text-slate-200">${teams.size ? Array.from(teams).join(', ') : 'Teams TBA'}</p>
+              </div>
+              <span class="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200">${tiedMatches.length} matches</span>
+            </div>
+            ${buildPointsTable(tournament.pointsTable)}
+            <div class="mt-8">
+              <button type="button" data-toggle="${tournament.id}" class="flex items-center gap-2 text-sm font-semibold text-emerald-300 transition hover:text-emerald-200">
+                View schedule
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              <ul id="matches-${tournament.id}" class="mt-6 hidden space-y-4">${matchList || '<li class="rounded-2xl border border-slate-800/60 bg-slate-950/60 p-5 text-sm text-slate-400">No matches scheduled yet.</li>'}</ul>
+            </div>
+          `;
+          tournamentGrid.appendChild(card);
+        });
+      }
+
+      tournamentGrid.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-toggle]');
+        if (!button) return;
+        const toggleId = button.dataset.toggle;
+        const list = document.getElementById(`matches-${toggleId}`);
+        if (!list) return;
+        list.classList.toggle('hidden');
+        button.classList.toggle('text-emerald-100');
+        const icon = button.querySelector('svg');
+        if (icon) {
+          icon.classList.add('transition', 'duration-300');
+          icon.classList.toggle('rotate-180');
+        }
+      });
+
+      window.addEventListener('storage', () => renderTournaments());
+      renderTournaments();
+      });
+    </script>
+  </body>
+</html>
