@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cricscanner Admin</title>
-    <link rel="stylesheet" href="../public/styles.css" />
+    <link rel="stylesheet" href="../styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -27,19 +27,19 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('key') !== REQUIRED_KEY) {
           alert('Access Denied');
-          window.location.href = '../public/index.html';
+          window.location.href = '/index.html';
           return;
         }
 
         const pass = prompt('Enter admin password');
         if (pass !== 'Raman@AIsecure') {
           alert('Access Denied');
-          window.location.href = '../public/index.html';
+          window.location.href = '/index.html';
         }
       })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
-    <script src="../public/js/storage.js" defer></script>
+    <script src="../js/storage.js" defer></script>
   </head>
   <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
     <header class="border-b border-slate-800/60 bg-slate-950/70 backdrop-blur">
@@ -51,7 +51,7 @@
             Manage tournaments and matches. All times are stored and interpreted in Eastern Time (ET). Updates reflect instantly across the public dashboard.
           </p>
         </div>
-        <a href="../public/index.html" class="text-sm font-semibold text-emerald-300 transition hover:text-emerald-200">← Back to dashboard</a>
+        <a href="/index.html" class="text-sm font-semibold text-emerald-300 transition hover:text-emerald-200">← Back to dashboard</a>
       </div>
     </header>
 
