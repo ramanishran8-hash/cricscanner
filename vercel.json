@@ -1,0 +1,20 @@
+{
+  "routes": [
+    {
+      "src": "/private/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-cricscanner-key",
+          "value": "XYZ123"
+        }
+      ],
+      "dest": "/private/$1"
+    },
+    {
+      "src": "/private/(.*)",
+      "status": 403,
+      "dest": "/"
+    }
+  ]
+}

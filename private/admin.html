@@ -21,17 +21,27 @@
         },
       };
     </script>
+    <script>
+      (function enforcePrivateAccess() {
+        const REQUIRED_KEY = 'XYZ123';
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('key') !== REQUIRED_KEY) {
+          alert('Access denied');
+          window.location.href = '../public/index.html';
+          return;
+        }
+
+        const pass = prompt('Enter admin password:');
+        if (pass !== 'cric@admin123') {
+          alert('Access denied');
+          window.location.href = '../public/index.html';
+        }
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
     <script src="../public/js/storage.js" defer></script>
   </head>
   <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
-    <script>
-      const pass = prompt('Enter admin password:');
-      if (pass !== 'yourStrongPassword123') {
-        alert('Access denied');
-        window.location.href = '../public/index.html';
-      }
-    </script>
     <header class="border-b border-slate-800/60 bg-slate-950/70 backdrop-blur">
       <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -108,9 +118,9 @@
               <button
                 type="button"
                 id="autoAddMatches"
-                class="hidden rounded-full border border-emerald-400/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
+                class="rounded-full border border-emerald-400/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
               >
-                Auto-Add Matches
+                Auto-add Matches (AI)
               </button>
             </div>
             <p class="mt-2 text-sm text-slate-400">Schedule fixtures with ET start and (optional) end times. Scores can be added once completed.</p>
@@ -587,35 +597,94 @@
         }
       });
 
-      function buildFallbackDataset() {
+      function simulateAIDataset() {
         const now = DateTime.now().setZone('America/New_York');
-        return {
-          tournaments: [
-            {
-              key: 'auto-tour-1',
-              name: 'AI Invitational Series',
-              location: 'New York, USA',
-              description: 'Generated fixtures curated by the Cricscanner assistant.',
-            },
-          ],
-          matches: [
-            {
-              tournamentKey: 'auto-tour-1',
-              teamA: 'Brooklyn Bots',
-              teamB: 'Queens Quantum',
-              startTime: now.plus({ days: 2, hours: 2 }).toISO(),
-              endTime: now.plus({ days: 2, hours: 6 }).toISO(),
-              location: 'Prospect Park Oval, NYC',
-            },
-            {
-              tournamentKey: 'auto-tour-1',
-              teamA: 'Bronx Blasters',
-              teamB: 'Harlem Heat',
-              startTime: now.plus({ days: 4, hours: 1 }).toISO(),
-              location: 'Yankee Complex, NYC',
-            },
-          ],
+        const adjectives = ['Quantum', 'Aurora', 'Velocity', 'Frontier', 'Summit', 'Legends', 'Prime'];
+        const nouns = ['Showdown', 'Championship', 'Series', 'Clash', 'Cup', 'Carnival', 'Masters'];
+        const locations = [
+          'New York, USA',
+          'Toronto, Canada',
+          'London, UK',
+          'Barbados',
+          'Sydney, Australia',
+          'Mumbai, India',
+          'Cape Town, South Africa',
+        ];
+        const venues = [
+          'Prospect Park Oval',
+          'Eden Gardens Annex',
+          'Harbor Lights Stadium',
+          'Sunset Arena',
+          'Skyline Dome',
+          'Lakeside Grounds',
+          'Aurora Cricket Centre',
+        ];
+        const teamPool = [
+          'Brooklyn Blazers',
+          'Harlem Hawks',
+          'Queens Quantum',
+          'Bronx Bolts',
+          'Manhattan Meteors',
+          'Jersey Juggernauts',
+          'Staten Strikers',
+          'Hudson Hurricanes',
+          'Liberty Lightning',
+        ];
+
+        const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const pick = (arr) => arr[randomInt(0, arr.length - 1)];
+        const uniqueTournamentKey = `ai-tour-${Date.now()}`;
+        const tournament = {
+          key: uniqueTournamentKey,
+          name: `${pick(adjectives)} ${pick(nouns)}`,
+          location: pick(locations),
+          description: 'Auto-generated fixtures prepared by the Cricscanner assistant.',
         };
+
+        const matches = [];
+        const matchCount = randomInt(3, 6);
+        for (let index = 0; index < matchCount; index += 1) {
+          let teamA = pick(teamPool);
+          let teamB = pick(teamPool);
+          while (teamB === teamA) {
+            teamB = pick(teamPool);
+          }
+
+          const scenario = pick(['upcoming', 'live', 'completed']);
+          let startTime = now.plus({ days: randomInt(1, 10), hours: randomInt(0, 12) });
+          let endTime = '';
+          let scoreA = '';
+          let scoreB = '';
+
+          if (scenario === 'completed') {
+            const start = now.minus({ days: randomInt(1, 6), hours: randomInt(0, 5) });
+            const durationHours = randomInt(3, 6);
+            startTime = start;
+            endTime = start.plus({ hours: durationHours }).toISO();
+            const baseScore = randomInt(120, 210);
+            scoreA = `${baseScore}/${randomInt(3, 8)}`;
+            scoreB = `${baseScore - randomInt(-10, 25)}/${randomInt(3, 9)}`;
+          } else if (scenario === 'live') {
+            const start = now.minus({ hours: randomInt(0, 2), minutes: randomInt(15, 55) });
+            startTime = start;
+            endTime = now.plus({ hours: 2 }).toISO();
+            scoreA = `${randomInt(60, 120)}/${randomInt(0, 4)}`;
+            scoreB = `${randomInt(40, 110)}/${randomInt(0, 4)}`;
+          }
+
+          matches.push({
+            tournamentKey: uniqueTournamentKey,
+            teamA,
+            teamB,
+            startTime: startTime.toISO(),
+            endTime,
+            location: `${pick(venues)}, ${tournament.location}`,
+            scoreA,
+            scoreB,
+          });
+        }
+
+        return { tournaments: [tournament], matches };
       }
 
       function normalizeAssistantPayload(payload) {
@@ -657,6 +726,7 @@
       }
 
       async function requestAssistantDataset() {
+        const simulated = simulateAIDataset();
         try {
           const response = await fetch('https://example.com/api/matches', { cache: 'no-store' });
           if (response.ok) {
@@ -667,9 +737,9 @@
             }
           }
         } catch (error) {
-          console.info('Dummy API unreachable, using fallback dataset.', error);
+          console.info('Dummy API unreachable, using simulated dataset.', error);
         }
-        return buildFallbackDataset();
+        return simulated;
       }
 
       if (autoAddMatches) {
