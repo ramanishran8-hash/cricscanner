@@ -1,6 +1,6 @@
 {
   "builds": [
-    { "src": "public/**", "use": "@vercel/static" }
+    { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/robots.txt", "dest": "/public/robots.txt" },
@@ -11,11 +11,7 @@
       ],
       "dest": "/public/private/admin.html"
     },
-    {
-      "src": "/private/(.*)",
-      "status": 403,
-      "dest": "/"
-    },
+    { "src": "/private/(.*)", "status": 403, "dest": "/" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }
