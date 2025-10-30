@@ -1,28 +1,58 @@
-console.log("🚀 CricAPI auto-updater started!");
-async function fetchCricAPIData() {
-  const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa"; // your CricAPI key
-  const url = `https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`;
+console.log("🟢 CricAPI auto-updater started!");
+
+// 🧩 Ensure storage.js is fully loaded
+if (typeof window.getData !== "function") {
+  console.warn("⚠️ getData() not yet available. Waiting for storage.js to load...");
+}
+
+let lastUpdateTime = 0;
+let fetchInProgress = false;
+
+async function fetchLatestMatches() {
+  if (fetchInProgress) return; // prevent overlapping fetches
+  fetchInProgress = true;
 
   try {
-    console.log("🏏 Fetching latest matches from CricAPI...");
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!data || !data.data) {
-      console.error("⚠️ CricAPI returned no match data:", data);
+    const now = Date.now();
+    if (now - lastUpdateTime < 30000) {
+      // only allow every 30s minimum
+      fetchInProgress = false;
       return;
     }
 
-    console.log(`✅ ${data.data.length} matches fetched from CricAPI`);
-    localStorage.setItem("cricapi_matches", JSON.stringify(data.data));
+    console.log("📡 Fetching latest matches from CricAPI...");
 
-    // Print first few matches to verify
-    data.data.slice(0, 3).forEach((m) => console.log("➡️", m.name, "-", m.status));
+    const res = await fetch("https://api.cricapi.com/v1/currentMatches?apikey=YOUR_API_KEY_HERE&offset=0");
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+
+    if (!data || !data.data) {
+      console.warn("⚠️ Invalid CricAPI response.");
+      return;
+    }
+
+    const matches = data.data.map((m) => ({
+      name: `${m.name || m.series} — ${m.matchType || ""}`.trim(),
+      status: m.status,
+      venue: m.venue,
+      date: m.date,
+    }));
+
+    // ✅ Save to localStorage safely
+    localStorage.setItem("cricapi_matches", JSON.stringify(matches));
+    console.log(`✅ ${matches.length} matches fetched from CricAPI`);
+    window.dispatchEvent(new Event("storage")); // notify dashboard pages
+
+    lastUpdateTime = now;
   } catch (err) {
-    console.error("❌ Error fetching CricAPI data", err);
+    console.error("❌ CricAPI fetch failed:", err);
+  } finally {
+    fetchInProgress = false;
   }
 }
 
-// Run immediately and every 15 mins
-fetchCricAPIData();
-setInterval(fetchCricAPIData, 15 * 60 * 1000);
+// 🕒 Auto-refresh every 3 minutes (safe, stable)
+setInterval(fetchLatestMatches, 180000);
+
+// 🏁 Fetch immediately once when page loads
+window.addEventListener("DOMContentLoaded", fetchLatestMatches);
