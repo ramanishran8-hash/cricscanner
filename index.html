@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cricscanner | Live Cricket Pulse</title>
+    <title>Cricscanner | Admin Dashboard</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -11,7 +13,7 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['\"Inter\"', 'system-ui', 'sans-serif'],
+              sans: ['"Inter"', 'system-ui', 'sans-serif'],
             },
             colors: {
               midnight: '#0a101f',
@@ -24,233 +26,123 @@
         },
       };
     </script>
+
+    <!-- Luxon for time formatting -->
     <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
-    <script src="js/storage.js" defer></script>
+
+    <!-- IMPORTANT: Load storage.js BEFORE any other script -->
+    <script src="../public/js/storage.js"></script>
+
+    <!-- Auto updater (CricAPI fetcher) -->
+    <script src="../public/js/auto-updater.js"></script>
   </head>
+
   <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
-    <header class="border-b border-slate-800/60 bg-slate-950/70 backdrop-blur">
-      <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200 shadow-glow">
-            Cricket Intelligence
-          </div>
-          <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Cricscanner</h1>
-          <p class="mt-3 max-w-2xl text-base text-slate-300 sm:text-lg">
-            Follow upcoming fixtures, experience the thrill of live encounters, and catch the results the moment they drop. Powered by Eastern Time updates every minute.
-          </p>
-        </div>
-        <div class="flex flex-col gap-3 text-sm text-slate-400 sm:text-right">
-          <a href="tournaments.html" class="font-semibold text-emerald-300 transition hover:text-emerald-200">Browse tournaments →</a>
-          <a href="admin.html" class="font-semibold text-sky-300 transition hover:text-sky-200">Admin dashboard →</a>
-        </div>
-      </div>
-    </header>
+    <main class="mx-auto max-w-5xl px-6 py-12">
+      <h1 class="text-3xl font-bold mb-8">Admin Dashboard</h1>
 
-    <main class="mx-auto max-w-6xl px-6 py-12">
-      <section>
-        <div class="flex flex-wrap gap-3 rounded-full border border-slate-800/60 bg-slate-900/60 p-1 text-sm font-semibold text-slate-300 shadow-inner">
-          <button
-            type="button"
-            data-tab="upcoming"
-            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
-          >
-            Upcoming
-          </button>
-          <button
-            type="button"
-            data-tab="live"
-            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
-          >
-            Live
-          </button>
-          <button
-            type="button"
-            data-tab="completed"
-            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
-          >
-            Completed
-          </button>
-        </div>
+      <!-- Back link -->
+      <a href="../index.html" class="text-emerald-400 hover:text-emerald-300 mb-6 inline-block">← Back to dashboard</a>
 
-        <div id="matchesWrapper" class="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3"></div>
-        <p id="emptyState" class="mt-10 hidden rounded-2xl border border-slate-800/60 bg-slate-900/40 p-10 text-center text-base text-slate-400">
-          Nothing to display yet. Check back soon or add a new match from the admin dashboard.
+      <!-- TOURNAMENT SECTION -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold mb-4">Tournaments</h2>
+        <p class="text-slate-400 mb-6">
+          Create and update tournaments. Deleting a tournament will remove its matches.
         </p>
+
+        <div class="space-y-4">
+          <input id="tournamentName" type="text" placeholder="Tournament name"
+            class="w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-white placeholder-slate-500" />
+          <input id="tournamentLocation" type="text" placeholder="Primary location"
+            class="w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-white placeholder-slate-500" />
+          <textarea id="tournamentDescription" rows="3" placeholder="Short note about the tournament"
+            class="w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-white placeholder-slate-500"></textarea>
+
+          <button id="saveTournamentBtn"
+            class="rounded-xl bg-gradient-to-r from-emerald-500 to-sky-500 px-6 py-2 font-semibold text-white shadow-glow transition hover:opacity-90">
+            Save tournament
+          </button>
+        </div>
+      </section>
+
+      <!-- MATCHES SECTION -->
+      <section>
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold">Matches</h2>
+          <button id="autoAddMatchesBtn"
+            class="rounded-full bg-gradient-to-r from-emerald-400/20 to-sky-400/20 px-4 py-2 text-emerald-200 border border-emerald-400/50 text-sm font-semibold hover:opacity-80">
+            AUTO-ADD MATCHES (AI)
+          </button>
+        </div>
+
+        <div id="matches-wrapper" class="space-y-4"></div>
       </section>
     </main>
 
-    <footer class="border-t border-slate-800/60 bg-slate-950/70">
-      <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-        <p>Updated every minute • Eastern Time</p>
-        <p>Built with TailwindCSS and Luxon</p>
+    <footer class="border-t border-slate-800/60 bg-slate-950/70 mt-12">
+      <div class="mx-auto max-w-5xl px-6 py-6 text-center text-sm text-slate-500">
+        CricScanner Control Room — All data auto-syncs across dashboards.
       </div>
     </footer>
 
+    <!-- ADMIN SCRIPT -->
     <script>
       const { DateTime } = luxon;
-      const tabs = document.querySelectorAll('.tab-button');
-      const matchesWrapper = document.getElementById('matchesWrapper');
-      const emptyState = document.getElementById('emptyState');
-      let activeTab = 'live';
 
-      function resolveStatus(match, now) {
-        const start = DateTime.fromISO(match.startTime, { zone: 'America/New_York' });
-        if (!start.isValid) return 'upcoming';
-        const end = match.endTime ? DateTime.fromISO(match.endTime, { zone: 'America/New_York' }) : null;
-        if (now < start) {
-          return 'upcoming';
-        }
-        if (end && now > end) {
-          return 'completed';
-        }
-        if (!end) {
-          const assumedEnd = start.plus({ hours: 4 });
-          if (now > assumedEnd) {
-            return 'completed';
-          }
-        }
-        return 'live';
-      }
+      const saveTournamentBtn = document.getElementById('saveTournamentBtn');
+      const nameEl = document.getElementById('tournamentName');
+      const locationEl = document.getElementById('tournamentLocation');
+      const descEl = document.getElementById('tournamentDescription');
 
-      function formatDateTime(dateISO) {
-        if (!dateISO) return '—';
-        const dt = DateTime.fromISO(dateISO, { zone: 'America/New_York' });
-        if (!dt.isValid) return '—';
-        return dt.toFormat("ccc, LLL dd • hh:mm a 'ET'");
-      }
-
-      function relativeStatus(match, now) {
-        const start = DateTime.fromISO(match.startTime, { zone: 'America/New_York' });
-        if (!start.isValid) return '';
-        const diff = start.diff(now, ['days', 'hours', 'minutes']).toObject();
-        if (now < start) {
-          const parts = [];
-          if (diff.days) parts.push(`${Math.max(0, Math.floor(diff.days))}d`);
-          if (diff.hours) parts.push(`${Math.max(0, Math.floor(diff.hours))}h`);
-          if (diff.minutes) parts.push(`${Math.max(0, Math.floor(diff.minutes))}m`);
-          return parts.length ? `Starts in ${parts.join(' ')}` : 'Starts soon';
-        }
-        const end = match.endTime ? DateTime.fromISO(match.endTime, { zone: 'America/New_York' }) : start.plus({ hours: 4 });
-        if (now <= end) {
-          const elapsed = now.diff(start, ['hours', 'minutes']).toObject();
-          const elapsedParts = [];
-          if (elapsed.hours) elapsedParts.push(`${Math.max(0, Math.floor(elapsed.hours))}h`);
-          elapsedParts.push(`${Math.max(0, Math.floor(elapsed.minutes || 0))}m`);
-          return `Live for ${elapsedParts.join(' ')}`;
-        }
-        return 'Final';
-      }
-
-      function matchScores(match) {
-        if (match.scoreA || match.scoreB) {
-          return `${match.teamA}: ${match.scoreA || '—'} • ${match.teamB}: ${match.scoreB || '—'}`;
-        }
-        return 'Scores pending';
-      }
-
-      function createBadge(text, variant) {
-        const base = 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest';
-        if (variant === 'live') {
-          return `<span class="${base} border-emerald-400/50 bg-emerald-400/20 text-emerald-200 shadow-glow animate-pulse">${text}</span>`;
-        }
-        if (variant === 'completed') {
-          return `<span class="${base} border-sky-400/40 bg-sky-400/10 text-sky-200">${text}</span>`;
-        }
-        return `<span class="${base} border-slate-500/40 bg-slate-500/10 text-slate-300">${text}</span>`;
-      }
-
-      function renderMatches() {
-        const now = DateTime.now().setZone('America/New_York');
-        const data = window.CricStorage.getData();
-        const tournamentsById = Object.fromEntries(data.tournaments.map((t) => [t.id, t]));
-        const matches = data.matches
-          .map((match) => ({ ...match, status: resolveStatus(match, now) }))
-          .filter((match) => match.status === activeTab)
-          .sort((a, b) => DateTime.fromISO(a.startTime) - DateTime.fromISO(b.startTime));
-
-        matchesWrapper.innerHTML = '';
-
-        if (!matches.length) {
-          emptyState.classList.remove('hidden');
+      // ✅ Save tournament data
+      saveTournamentBtn.addEventListener('click', () => {
+        const name = nameEl.value.trim();
+        if (!name) {
+          alert('Please enter a tournament name.');
           return;
         }
 
-        emptyState.classList.add('hidden');
+        const data = window.getData();
+        const newTournament = {
+          id: `tour-${Date.now()}`,
+          name,
+          location: locationEl.value.trim(),
+          description: descEl.value.trim(),
+          pointsTable: [],
+        };
 
-        matches.forEach((match) => {
-          const tournament = tournamentsById[match.tournamentId];
-          const badge =
-            match.status === 'live'
-              ? createBadge('Live', 'live')
-              : match.status === 'completed'
-              ? createBadge('Completed', 'completed')
-              : createBadge('Upcoming', 'upcoming');
-
-          const relative = relativeStatus(match, now);
-          const startLabel = formatDateTime(match.startTime);
-          const endLabel = formatDateTime(match.endTime);
-          const scores = matchScores(match);
-          const location = match.location || (tournament && tournament.location) || 'Venue TBA';
-
-          const card = document.createElement('article');
-          card.className = 'group relative overflow-hidden rounded-3xl border border-slate-800/60 bg-slate-900/60 p-6 shadow-lg shadow-blue-900/20 transition hover:-translate-y-1 hover:border-emerald-400/60';
-          card.innerHTML = `
-            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500/60 via-emerald-400/60 to-sky-500/60 opacity-0 transition group-hover:opacity-100"></div>
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200/70">${
-                  tournament ? tournament.name : 'Untitled Tournament'
-                }</p>
-                <h3 class="mt-2 text-2xl font-semibold text-white">${match.teamA} <span class="text-slate-500">vs</span> ${match.teamB}</h3>
-              </div>
-              ${badge}
-            </div>
-            <p class="mt-3 text-sm text-slate-300">${relative}</p>
-            <dl class="mt-6 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
-              <div>
-                <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Start</dt>
-                <dd class="mt-1 font-medium text-white">${startLabel}</dd>
-              </div>
-              <div>
-                <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">End</dt>
-                <dd class="mt-1 font-medium text-white">${endLabel}</dd>
-              </div>
-              <div>
-                <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Venue</dt>
-                <dd class="mt-1 font-medium text-white">${location}</dd>
-              </div>
-              <div>
-                <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Scores</dt>
-                <dd class="mt-1 font-medium text-white">${scores}</dd>
-              </div>
-            </dl>
-          `;
-
-          matchesWrapper.appendChild(card);
-        });
-      }
-
-      function setActiveTab(tab) {
-        activeTab = tab;
-        tabs.forEach((button) => {
-          if (button.dataset.tab === tab) {
-            button.classList.add('bg-gradient-to-r', 'from-sky-500/20', 'to-emerald-400/20', 'text-white');
-          } else {
-            button.classList.remove('bg-gradient-to-r', 'from-sky-500/20', 'to-emerald-400/20', 'text-white');
-          }
-        });
-        renderMatches();
-      }
-
-      tabs.forEach((button) => {
-        button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+        data.tournaments.push(newTournament);
+        window.saveData(data);
+        alert(`✅ Tournament "${name}" saved successfully!`);
+        nameEl.value = locationEl.value = descEl.value = '';
       });
 
-      window.addEventListener('storage', () => renderMatches());
+      // ✅ Render CricAPI matches on admin dashboard
+      function renderCricAPIMatchesAdmin() {
+        const wrapper = document.getElementById('matches-wrapper');
+        const stored = localStorage.getItem('cricapi_matches');
+        wrapper.innerHTML = '';
 
-      setActiveTab('live');
-      renderMatches();
-      setInterval(renderMatches, 60000);
+        if (!stored) {
+          wrapper.innerHTML = `<p class="text-slate-400">No CricAPI matches available yet.</p>`;
+          return;
+        }
+
+        const matches = JSON.parse(stored);
+        matches.slice(0, 9).forEach((m) => {
+          const div = document.createElement('div');
+          div.className = 'p-4 rounded-lg bg-slate-800';
+          div.innerHTML = `
+            <h3 class="text-white font-semibold">${m.name}</h3>
+            <p class="text-slate-400 text-sm">${m.status || 'Match status unavailable'}</p>
+          `;
+          wrapper.appendChild(div);
+        });
+      }
+
+      renderCricAPIMatchesAdmin();
+      window.addEventListener('storage', renderCricAPIMatchesAdmin);
     </script>
   </body>
 </html>
