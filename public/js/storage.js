@@ -1,14 +1,11 @@
 const STORAGE_KEY = 'cricscannerData';
-// ✅ Prevent storage.js from running on admin pages
-if (window.location.pathname.includes("admin.html")) {
-  console.log("🧩 Skipping CricAPI render — admin page detected.");
-  return;
-}
 
-const clone = (value) =>
-  typeof structuredClone === 'function'
-    ? structuredClone(value)
-    : JSON.parse(JSON.stringify(value));
+// ✅ Prevent storage.js from running on admin pages
+if (!window.location.pathname.includes("admin.html")) {
+  const clone = (value) =>
+    typeof structuredClone === 'function'
+      ? structuredClone(value)
+      : JSON.parse(JSON.stringify(value));
 
 const defaultData = {
   tournaments: [
