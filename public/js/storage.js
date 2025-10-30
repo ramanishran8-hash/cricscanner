@@ -1,0 +1,359 @@
+const STORAGE_KEY = 'cricscannerData';
+
+const clone = (value) =>
+  typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : JSON.parse(JSON.stringify(value));
+
+const defaultData = {
+  tournaments: [
+    {
+      id: 'tour-1',
+      name: 'World Test Championship',
+      location: 'Global Venues',
+      description: 'Top-ranked nations compete across the globe.',
+      pointsTable: [
+        { team: 'India', points: 120 },
+        { team: 'Australia', points: 112 },
+        { team: 'England', points: 96 },
+      ],
+    },
+    {
+      id: 'tour-2',
+      name: 'Champions T20 League',
+      location: 'United States',
+      description: 'A high-octane franchise tournament under the lights.',
+      pointsTable: [
+        { team: 'Seattle Strikers', points: 10 },
+        { team: 'Miami Thunder', points: 8 },
+        { team: 'Austin Comets', points: 6 },
+      ],
+    },
+  ],
+  matches: [
+    {
+      id: 'match-1',
+      tournamentId: 'tour-1',
+      teamA: 'India',
+      teamB: 'Australia',
+      startTime: '2024-07-20T09:00:00-04:00',
+      endTime: '2024-07-24T17:00:00-04:00',
+      scoreA: '325 & 210/3',
+      scoreB: '287 & 198',
+      location: "Lord's, London",
+    },
+    {
+      id: 'match-2',
+      tournamentId: 'tour-2',
+      teamA: 'Seattle Strikers',
+      teamB: 'Miami Thunder',
+      startTime: '2024-07-18T19:30:00-04:00',
+      endTime: '2024-07-18T22:30:00-04:00',
+      scoreA: '182/5',
+      scoreB: '179/7',
+      location: 'Lumen Field, Seattle',
+    },
+    {
+      id: 'match-3',
+      tournamentId: 'tour-2',
+      teamA: 'Austin Comets',
+      teamB: 'Boston Blazers',
+      startTime: '2024-07-28T18:00:00-04:00',
+      location: 'Q2 Stadium, Austin',
+    },
+  ],
+};
+
+function seededId(prefix, index) {
+  return `${prefix}-feed-${index + 1}`;
+}
+
+function deriveTeamsFromMatch(match) {
+  if (!match || typeof match !== 'object') {
+    return ['', ''];
+  }
+  const teamA = match.teamA || match.homeTeam || '';
+  const teamB = match.teamB || match.awayTeam || '';
+  if (teamA && teamB) {
+    return [teamA, teamB];
+  }
+  if (typeof match.match === 'string' && match.match.includes('vs')) {
+    const parts = match.match.split('vs');
+    const first = parts[0] ? parts[0].trim() : '';
+    const second = parts[1] ? parts[1].trim() : '';
+    return [first, second];
+  }
+  return [teamA || '', teamB || ''];
+}
+
+function convertMatchesFromFeed(rawMatches, tournaments) {
+  if (!Array.isArray(rawMatches) || !rawMatches.length) {
+    return [];
+  }
+
+  const normalizedTournaments = Array.isArray(tournaments) ? tournaments : [];
+  const tournamentsByName = new Map(
+    normalizedTournaments.map((tournament) => [String(tournament.name || '').toLowerCase(), tournament.id])
+  );
+
+  const nextMatches = [];
+
+  rawMatches.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      return;
+    }
+
+    const [teamA, teamB] = deriveTeamsFromMatch(entry);
+    if (!teamA || !teamB) {
+      return;
+    }
+
+    const tournamentName = entry.tournament || entry.series || 'Cricscanner Fixtures';
+    const tournamentKey = String(tournamentName).toLowerCase();
+    let tournamentId = tournamentsByName.get(tournamentKey);
+    if (!tournamentId) {
+      tournamentId = seededId('tour', tournamentsByName.size + 1);
+      normalizedTournaments.push({
+        id: tournamentId,
+        name: tournamentName,
+        location: entry.venue || '',
+        description: entry.description || '',
+      });
+      tournamentsByName.set(tournamentKey, tournamentId);
+    }
+
+    const rawStart = entry.startTime || entry.date || entry.dateTime || entry.dateTimeGMT || '';
+    let startTime = '';
+    if (rawStart) {
+      const parsedStart = new Date(rawStart);
+      startTime = Number.isNaN(parsedStart.getTime()) ? String(rawStart) : parsedStart.toISOString();
+    }
+    const rawEnd = entry.endTime || entry.finishTime || entry.dateTimeEnd || '';
+    let endTime = '';
+    if (rawEnd) {
+      const parsedEnd = new Date(rawEnd);
+      endTime = Number.isNaN(parsedEnd.getTime()) ? String(rawEnd) : parsedEnd.toISOString();
+    }
+    const matchId = entry.id || entry.externalId || seededId('match', index);
+
+    const payload = {
+      id: matchId,
+      tournamentId,
+      teamA,
+      teamB,
+      startTime,
+      endTime,
+      scoreA: entry.scoreA || '',
+      scoreB: entry.scoreB || '',
+      location: entry.venue || entry.location || '',
+      summary: entry.summary || '',
+      status: entry.phase || entry.status || '',
+      statusText: entry.status || '',
+    };
+
+    if (entry.externalId) {
+      payload.externalId = entry.externalId;
+      payload.externalSource = entry.externalSource || 'cricapi';
+    }
+
+    if (!payload.status) {
+      payload.status = 'upcoming';
+    }
+    if (!payload.statusText) {
+      payload.statusText = payload.status;
+    }
+
+    nextMatches.push(payload);
+  });
+
+  return nextMatches;
+}
+
+const SOURCE_PATHS = {
+  tournaments: [
+    '/data/tournaments.json',
+    './data/tournaments.json',
+    '../data/tournaments.json',
+    '/public/data/tournaments.json',
+    '../public/data/tournaments.json',
+  ],
+  matches: [
+    '/data/matches.json',
+    './data/matches.json',
+    '../data/matches.json',
+    '/public/data/matches.json',
+    '../public/data/matches.json',
+  ],
+};
+
+let memoryCache = null;
+let loadPromise = null;
+
+async function fetchFromSources(paths) {
+  for (const path of paths) {
+    try {
+      const response = await fetch(path, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      // Ignore fetch failures and try the next path.
+    }
+  }
+  throw new Error('Unable to load seeded data from any source.');
+}
+
+function normalize(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const tournaments = Array.isArray(source.tournaments) && source.tournaments.length
+    ? clone(source.tournaments)
+    : clone(defaultData.tournaments);
+
+  let matchesCandidate = null;
+  if (Array.isArray(source.matches)) {
+    matchesCandidate = clone(source.matches);
+  } else if (source.matches && Array.isArray(source.matches.matches)) {
+    matchesCandidate = clone(source.matches.matches);
+  }
+
+  let matches = null;
+  if (Array.isArray(matchesCandidate) && matchesCandidate.length) {
+    const hasTournamentId = matchesCandidate.every(
+      (match) => match && typeof match === 'object' && Object.prototype.hasOwnProperty.call(match, 'tournamentId')
+    );
+    if (hasTournamentId) {
+      matches = matchesCandidate.map((match, index) => ({
+        ...match,
+        id: match.id || seededId('match', index),
+      }));
+    } else {
+      matches = convertMatchesFromFeed(matchesCandidate, tournaments);
+    }
+  }
+
+  if (!Array.isArray(matches) || !matches.length) {
+    matches = clone(defaultData.matches);
+  }
+
+  return { tournaments, matches };
+}
+
+function commit(next) {
+  memoryCache = clone(next);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryCache));
+  return clone(memoryCache);
+}
+
+async function seedFromFiles() {
+  try {
+    const [tournaments, matches] = await Promise.all([
+      fetchFromSources(SOURCE_PATHS.tournaments),
+      fetchFromSources(SOURCE_PATHS.matches),
+    ]);
+    return normalize({ tournaments, matches });
+  } catch (error) {
+    console.warn('Falling back to bundled defaults after seed fetch failed.', error);
+    return clone(defaultData);
+  }
+}
+
+async function ensureData() {
+  if (memoryCache) {
+    return clone(memoryCache);
+  }
+
+  if (loadPromise) {
+    const data = await loadPromise;
+    return clone(data);
+  }
+
+  loadPromise = (async () => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const normalized = normalize(parsed);
+        memoryCache = clone(normalized);
+        return normalized;
+      }
+    } catch (error) {
+      console.warn('Failed to read cricscanner data from localStorage. Reseeding.', error);
+    }
+
+    const seeded = await seedFromFiles();
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    memoryCache = clone(seeded);
+    return seeded;
+  })();
+
+  const resolved = await loadPromise;
+  return clone(resolved);
+}
+
+async function getData() {
+  return ensureData();
+}
+
+async function saveData(data) {
+  const normalized = normalize(data);
+  return commit(normalized);
+}
+
+async function upsertTournament(tournament) {
+  const data = await ensureData();
+  const next = clone(data);
+  const index = next.tournaments.findIndex((t) => t.id === tournament.id);
+  if (index >= 0) {
+    next.tournaments[index] = { ...next.tournaments[index], ...tournament };
+  } else {
+    next.tournaments.push({ ...tournament });
+  }
+  return commit(next);
+}
+
+async function deleteTournament(id) {
+  const data = await ensureData();
+  const next = clone(data);
+  next.tournaments = next.tournaments.filter((t) => t.id !== id);
+  next.matches = next.matches.filter((m) => m.tournamentId !== id);
+  return commit(next);
+}
+
+async function upsertMatch(match) {
+  const data = await ensureData();
+  const next = clone(data);
+  const index = next.matches.findIndex((m) => m.id === match.id);
+  if (index >= 0) {
+    next.matches[index] = { ...next.matches[index], ...match };
+  } else {
+    next.matches.push({ ...match });
+  }
+  return commit(next);
+}
+
+async function deleteMatch(id) {
+  const data = await ensureData();
+  const next = clone(data);
+  next.matches = next.matches.filter((m) => m.id !== id);
+  return commit(next);
+}
+
+async function resetToDefaults() {
+  return commit(normalize(defaultData));
+}
+
+function generateId(prefix) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
+}
+
+window.CricStorage = {
+  getData,
+  saveData,
+  upsertTournament,
+  deleteTournament,
+  upsertMatch,
+  deleteMatch,
+  resetToDefaults,
+  generateId,
+  defaultData,
+};
