@@ -1,3 +1,4 @@
+console.log("🚀 CricAPI auto-updater started!");
 async function fetchCricAPIData() {
   const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa"; // your CricAPI key
   const url = `https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`;
