@@ -258,3 +258,6 @@ document.addEventListener("DOMContentLoaded", () => {
   renderCricAPIMatches();
   window.addEventListener("storage", renderCricAPIMatches);
 });
+} // <-- add this at the very end of storage.js
+}); // end of DOMContentLoaded listener
+} // ✅ close the main "if (!window.location.pathname.includes('admin.html'))" block
