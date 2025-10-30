@@ -256,6 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   renderCricAPIMatches();
-  window.addEventListener("storage", renderCricAPIMatches);
+   window.addEventListener("storage", renderCricAPIMatches);
 }); // end of DOMContentLoaded listener
 } // close the main "if (!window.location.pathname.includes('admin.html'))" block
