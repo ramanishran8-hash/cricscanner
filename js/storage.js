@@ -1,5 +1,7 @@
+// storage.js
 const STORAGE_KEY = 'cricscannerData';
 
+// Utility function to deep-clone values safely
 const clone = (value) =>
   typeof structuredClone === 'function'
     ? structuredClone(value)
@@ -30,117 +32,71 @@ const defaultData = {
       ],
     },
   ],
-  matches: [
-    {
-      id: 'match-1',
-      tournamentId: 'tour-1',
-      teamA: 'India',
-      teamB: 'Australia',
-      startTime: '2024-07-20T09:00:00-04:00',
-      endTime: '2024-07-24T17:00:00-04:00',
-      scoreA: '325 & 210/3',
-      scoreB: '287 & 198',
-      location: 'Lord\'s, London',
-    },
-    {
-      id: 'match-2',
-      tournamentId: 'tour-2',
-      teamA: 'Seattle Strikers',
-      teamB: 'Miami Thunder',
-      startTime: '2024-07-18T19:30:00-04:00',
-      endTime: '2024-07-18T22:30:00-04:00',
-      scoreA: '182/5',
-      scoreB: '179/7',
-      location: 'Lumen Field, Seattle',
-    },
-    {
-      id: 'match-3',
-      tournamentId: 'tour-2',
-      teamA: 'Austin Comets',
-      teamB: 'Boston Blazers',
-      startTime: '2024-07-28T18:00:00-04:00',
-      location: 'Q2 Stadium, Austin',
-    },
-  ],
+  matches: [],
 };
 
-function loadData() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-      return clone(defaultData);
-    }
-    const parsed = JSON.parse(raw);
-    return {
-      tournaments: Array.isArray(parsed.tournaments) ? parsed.tournaments : clone(defaultData.tournaments),
-      matches: Array.isArray(parsed.matches) ? parsed.matches : clone(defaultData.matches),
-    };
-  } catch (error) {
-    console.error('Failed to load data from localStorage. Resetting to defaults.', error);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
-    return clone(defaultData);
-  }
+// ====== Core localStorage utilities ======
+function getData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : clone(defaultData);
 }
 
 function saveData(data) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.dispatchEvent(new Event('storage'));
 }
 
-function getData() {
-  return loadData();
+function resetToDefaults() {
+  saveData(defaultData);
 }
 
 function upsertTournament(tournament) {
-  const data = loadData();
+  const data = getData();
   const index = data.tournaments.findIndex((t) => t.id === tournament.id);
-  if (index >= 0) {
-    data.tournaments[index] = { ...data.tournaments[index], ...tournament };
-  } else {
-    data.tournaments.push({ ...tournament });
-  }
+  if (index >= 0) data.tournaments[index] = tournament;
+  else data.tournaments.push(tournament);
   saveData(data);
-  return data;
 }
 
 function deleteTournament(id) {
-  const data = loadData();
+  const data = getData();
   data.tournaments = data.tournaments.filter((t) => t.id !== id);
-  data.matches = data.matches.filter((m) => m.tournamentId !== id);
   saveData(data);
-  return data;
 }
 
-function upsertMatch(match) {
-  const data = loadData();
-  const index = data.matches.findIndex((m) => m.id === match.id);
-  if (index >= 0) {
-    data.matches[index] = { ...data.matches[index], ...match };
-  } else {
-    data.matches.push({ ...match });
+// ====== CricAPI Render Logic ======
+document.addEventListener('DOMContentLoaded', () => {
+  const wrapper = document.getElementById('matches-wrapper');
+  if (!wrapper) return; // no matches section on this page
+
+  function renderCricAPIMatches() {
+    const stored = localStorage.getItem('cricapi_matches');
+    if (!stored) {
+      console.log('⚠️ No CricAPI data found in localStorage yet.');
+      return;
+    }
+
+    const matches = JSON.parse(stored);
+    wrapper.innerHTML = ''; // clear previous
+
+    matches.slice(0, 9).forEach((m) => {
+      const div = document.createElement('div');
+      div.className = 'p-4 mb-2 bg-slate-800 rounded-lg';
+      div.innerHTML = `
+        <h3 class="text-white font-semibold">${m.name}</h3>
+        <p class="text-sm text-slate-400">${m.status || 'Match status unavailable'}</p>
+      `;
+      wrapper.appendChild(div);
+    });
   }
-  saveData(data);
-  return data;
-}
 
-function deleteMatch(id) {
-  const data = loadData();
-  data.matches = data.matches.filter((m) => m.id !== id);
-  saveData(data);
-  return data;
-}
+  renderCricAPIMatches();
+  window.addEventListener('storage', renderCricAPIMatches);
+});
 
-function generateId(prefix) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
-}
-
-window.CricStorage = {
-  getData,
-  saveData,
-  upsertTournament,
-  deleteTournament,
-  upsertMatch,
-  deleteMatch,
-  generateId,
-  defaultData,
-};
+// ====== Expose to global for admin.html ======
+window.getData = getData;
+window.saveData = saveData;
+window.upsertTournament = upsertTournament;
+window.deleteTournament = deleteTournament;
+window.resetToDefaults = resetToDefaults;
