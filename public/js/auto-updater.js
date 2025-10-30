@@ -1,11 +1,9 @@
 async function fetchCricAPIData() {
-  // Instead of process.env, read from a hardcoded or injected public key
-  const apiKey =
-    window.CRICSANNER_CRICAPI_KEY ||
-    "7282955f-2245-4cc4-becb-1f22ead081fa"; // ← your actual CricAPI key here temporarily
+  // Temporary: use a direct API key for testing
+  const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa";
 
   if (!apiKey) {
-    console.error("❌ CricAPI key missing. Set CRICSANNER_CRICAPI_KEY or inline key.");
+    console.error("❌ CricAPI key missing!");
     return;
   }
 
@@ -17,21 +15,20 @@ async function fetchCricAPIData() {
     const data = await response.json();
 
     if (!data || !data.data) {
-      console.error("⚠️ CricAPI returned no match data", data);
+      console.error("⚠️ CricAPI returned no data:", data);
       return;
     }
 
-    console.log(`✅ ${data.data.length} matches fetched from CricAPI`);
+    console.log(`✅ ${data.data.length} matches fetched`);
     localStorage.setItem("cricapi_matches", JSON.stringify(data.data));
 
-    // Log a few matches to confirm
+    // Print first few matches
     data.data.slice(0, 3).forEach((m) => console.log("➡️", m.name, "-", m.status));
   } catch (err) {
     console.error("❌ Error fetching CricAPI data", err);
   }
 }
 
-// Fetch immediately, then every 15 minutes
+// Run immediately and every 15 mins
 fetchCricAPIData();
 setInterval(fetchCricAPIData, 15 * 60 * 1000);
-
