@@ -1,75 +1,49 @@
 (function (global) {
-  'use strict';
-
   const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-  const SOURCE_NAME = 'cricapi';
+  const CRIC_API_ENDPOINT = 'https://api.cricapi.com/v1/currentMatches';
+  const OPENAI_CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+  const isNode = typeof process !== 'undefined' && !!process.versions && !!process.versions.node;
 
-  const runtimeConfig =
-    (typeof global.CricscannerAutoUpdaterConfig === 'object' && global.CricscannerAutoUpdaterConfig) || {};
+  let nodeSetupPromise = null;
+  let fsPromises = null;
+  let pathModule = null;
 
-  const CONFIG = {
-    cricapiKey: runtimeConfig.cricapiKey || 'YOUR_CRICAPI_KEY',
-    openAiKey: runtimeConfig.openAiKey || 'YOUR_OPENAI_API_KEY',
-  };
-
-  const ENDPOINTS = {
-    cricapi: (apiKey) => `https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`,
-    openai: 'https://api.openai.com/v1/chat/completions',
-  };
-
-  const state = {
-    busy: false,
-    intervalId: null,
-  };
-
-  function ensureConfigured() {
-    if (!CONFIG.cricapiKey || CONFIG.cricapiKey.includes('YOUR_CRICAPI_KEY')) {
-      throw new Error('CricAPI key is not configured.');
+  function loadNodeDependencies() {
+    if (!isNode) {
+      return Promise.resolve();
     }
-    if (!CONFIG.openAiKey || CONFIG.openAiKey.includes('YOUR_OPENAI_API_KEY')) {
-      throw new Error('OpenAI key is not configured.');
+    if (!nodeSetupPromise) {
+      nodeSetupPromise = Promise.all([
+        import('dotenv'),
+        import('fs/promises'),
+        import('path'),
+      ])
+        .then(([dotenvModule, fsModule, pathLib]) => {
+          if (dotenvModule && typeof dotenvModule.default === 'function') {
+            dotenvModule.default.config();
+          }
+          fsPromises = fsModule;
+          pathModule = pathLib;
+        })
+        .catch((error) => {
+          console.warn('Unable to bootstrap auto-updater Node dependencies.', error);
+          throw error;
+        });
     }
+    return nodeSetupPromise;
   }
 
-  async function fetchMatchesFromCricApi() {
-    const response = await fetch(ENDPOINTS.cricapi(CONFIG.cricapiKey), { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`CricAPI request failed with status ${response.status}`);
+  function getEnvValue(key) {
+    if (isNode) {
+      return (process.env && process.env[key]) || '';
     }
-    const payload = await response.json();
-    if (!payload || (payload.status && payload.status !== 'success')) {
-      throw new Error('CricAPI responded with an error payload.');
+    if (global && typeof global.CricscannerEnv === 'object' && global.CricscannerEnv) {
+      return global.CricscannerEnv[key] || '';
     }
-    const list = Array.isArray(payload.data) ? payload.data : [];
-    return list;
+    return '';
   }
 
-  function parseScoreEntry(entry) {
-    if (!entry || typeof entry !== 'object') return '';
-    const runs = entry.runs ?? entry.r;
-    const wickets = entry.wickets ?? entry.w;
-    const overs = entry.overs ?? entry.o;
-    const formattedRuns = typeof runs === 'number' ? runs : parseInt(runs, 10);
-    const formattedWickets = typeof wickets === 'number' ? wickets : parseInt(wickets, 10);
-    const runsPart = Number.isFinite(formattedRuns) ? formattedRuns : '';
-    const wicketsPart = Number.isFinite(formattedWickets) ? formattedWickets : '';
-    let value = '';
-    if (runsPart !== '') {
-      value += runsPart;
-    }
-    if (wicketsPart !== '') {
-      value += value ? `/${wicketsPart}` : wicketsPart;
-    }
-    if (!value) {
-      return entry.score || '';
-    }
-    if (overs) {
-      value += ` (${overs} ov)`;
-    }
-    return value;
-  }
-
-  function deriveTeamName(source, index) {
+  function selectTeamName(source, index) {
     if (!source) return '';
     if (Array.isArray(source.teamInfo) && source.teamInfo[index] && source.teamInfo[index].name) {
       return source.teamInfo[index].name;
@@ -80,382 +54,223 @@
     if (Array.isArray(source.team) && source.team[index]) {
       return source.team[index];
     }
-    const key = index === 0 ? 'teamA' : 'teamB';
-    if (source[key]) return source[key];
+    const fallbackKey = index === 0 ? 'teamA' : 'teamB';
+    if (source[fallbackKey]) {
+      return source[fallbackKey];
+    }
     return '';
   }
 
-  function normaliseStatus(rawStatus) {
-    if (!rawStatus) return 'upcoming';
-    const value = String(rawStatus).toLowerCase();
-    if (
-      value.includes('abandon') ||
-      value.includes('won') ||
-      value.includes('lost') ||
-      value.includes('draw') ||
-      value.includes('tie') ||
-      value.includes('stumps') ||
-      value.includes('no result') ||
-      value.includes('end of')
-    ) {
-      return 'completed';
+  function formatScore(entry) {
+    if (!entry || typeof entry !== 'object') {
+      return '';
     }
-    if (
-      value.includes('live') ||
-      value.includes('in progress') ||
-      value.includes('session') ||
-      value.includes('day') ||
-      value.includes('stumps') ||
-      value.includes('break')
-    ) {
-      return 'live';
+    const runs = entry.runs ?? entry.r;
+    const wickets = entry.wickets ?? entry.w;
+    const overs = entry.overs ?? entry.o;
+    const runsPart = typeof runs === 'number' ? runs : parseInt(runs, 10);
+    const wicketsPart = typeof wickets === 'number' ? wickets : parseInt(wickets, 10);
+    const parts = [];
+    if (Number.isFinite(runsPart)) {
+      parts.push(String(runsPart));
     }
-    if (
-      value.includes('scheduled') ||
-      value.includes('match not started') ||
-      value.includes('upcoming') ||
-      value.includes('to be played') ||
-      value.includes('starts')
-    ) {
-      return 'upcoming';
+    if (Number.isFinite(wicketsPart)) {
+      const wicketValue = String(wicketsPart);
+      if (parts.length) {
+        parts[0] = `${parts[0]}/${wicketValue}`;
+      } else {
+        parts.push(wicketValue);
+      }
     }
-    return value.trim() ? value : 'upcoming';
+    let score = parts.join('');
+    if (!score && typeof entry.score === 'string') {
+      score = entry.score;
+    }
+    if (overs) {
+      score = score ? `${score} (${overs} ov)` : `(${overs} ov)`;
+    }
+    return score;
   }
 
-  function normaliseMatch(source) {
-    if (!source || typeof source !== 'object') return null;
-    const teamA = deriveTeamName(source, 0) || '';
-    const teamB = deriveTeamName(source, 1) || '';
+  function mapMatchPayload(match) {
+    if (!match || typeof match !== 'object') {
+      return null;
+    }
+    const teamA = selectTeamName(match, 0) || '';
+    const teamB = selectTeamName(match, 1) || '';
     if (!teamA || !teamB) {
       return null;
     }
-    const seriesName = source.series || source.matchType || source.tournament || source.event || 'Cricscanner Fixtures';
-    const matchName = source.name || `${teamA} vs ${teamB}`;
-    const startTime = source.dateTimeGMT
-      ? new Date(source.dateTimeGMT).toISOString()
-      : source.startTime || source.startDate || new Date().toISOString();
-    const scores = Array.isArray(source.score) ? source.score : Array.isArray(source.scores) ? source.scores : [];
-    const statusText = source.status || source.statusText || '';
-    const normalizedStatus = normaliseStatus(statusText || (source.matchStarted ? 'live' : 'upcoming'));
-
-    const scoreAEntry = scores.find((entry) =>
-      entry && typeof entry.inning === 'string' && entry.inning.toLowerCase().includes(teamA.toLowerCase())
+    const scores = Array.isArray(match.score) ? match.score : Array.isArray(match.scores) ? match.scores : [];
+    const lowerTeamA = teamA.toLowerCase();
+    const lowerTeamB = teamB.toLowerCase();
+    const scoreAEntry = scores.find(
+      (entry) => entry && typeof entry.inning === 'string' && entry.inning.toLowerCase().includes(lowerTeamA)
     ) || scores[0];
-    const scoreBEntry = scores.find((entry) =>
-      entry && typeof entry.inning === 'string' && entry.inning.toLowerCase().includes(teamB.toLowerCase())
+    const scoreBEntry = scores.find(
+      (entry) => entry && typeof entry.inning === 'string' && entry.inning.toLowerCase().includes(lowerTeamB)
     ) || scores[1];
-
-    const venue = source.venue || source.ground || source.location || source.stadium || '';
-    const externalId =
-      source.id || source.matchId || source.unique_id || source.matchIdNew || `${teamA}-${teamB}-${startTime}`;
-
+    const statusText = match.status || match.matchStatus || '';
+    const result = match.result || statusText;
+    const startTime = match.dateTimeGMT
+      ? new Date(match.dateTimeGMT).toISOString()
+      : match.startTime || match.startDate || '';
     return {
-      externalId,
-      tournament: seriesName,
-      matchName,
-      startTime,
-      status: normalizedStatus,
-      statusText: statusText || normalizedStatus,
-      scoreA: parseScoreEntry(scoreAEntry),
-      scoreB: parseScoreEntry(scoreBEntry),
+      tournament: match.series || match.matchType || match.tournament || 'Cricscanner Fixtures',
+      match: match.name || `${teamA} vs ${teamB}`,
       teamA,
       teamB,
-      venue,
+      matchType: match.matchType || '',
+      venue: match.venue || match.ground || match.location || '',
+      startTime,
+      status: statusText || 'unknown',
+      scoreA: formatScore(scoreAEntry),
+      scoreB: formatScore(scoreBEntry),
+      result: result || '',
     };
   }
 
-  async function generateSummaryForMatch(match) {
-    const userPrompt = `Generate a 1-line summary of this cricket match: ${match.teamA} vs ${match.teamB}, scoreA: ${
+  async function fetchMatchesFromCricApi(apiKey) {
+    const url = `${CRIC_API_ENDPOINT}?apikey=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+      console.warn(`CricAPI request failed with status ${response.status}.`);
+      throw new Error(`CricAPI request failed with status ${response.status}`);
+    }
+    const payload = await response.json();
+    if (!payload || (payload.status && payload.status !== 'success')) {
+      console.warn('CricAPI returned an unexpected payload.', payload);
+      throw new Error('CricAPI returned an unexpected payload.');
+    }
+    const list = Array.isArray(payload.data) ? payload.data : [];
+    return list.map(mapMatchPayload).filter(Boolean);
+  }
+
+  async function fetchSummaryForMatch(match, apiKey) {
+    const prompt = `Generate a one-line summary for this cricket match: ${match.teamA} vs ${match.teamB}, scoreA: ${
       match.scoreA || 'N/A'
-    }, scoreB: ${match.scoreB || 'N/A'}, status: ${match.statusText || match.status}.`;
-    const response = await fetch(ENDPOINTS.openai, {
+    }, scoreB: ${match.scoreB || 'N/A'}, status: ${match.status || 'N/A'}, result: ${match.result || 'N/A'}`;
+    const response = await fetch(OPENAI_CHAT_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${CONFIG.openAiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a concise cricket reporter that writes lively one-line recaps.' },
-          { role: 'user', content: userPrompt },
+          { role: 'system', content: 'You create short, energetic summaries for cricket matches.' },
+          { role: 'user', content: prompt },
         ],
         max_tokens: 60,
         temperature: 0.7,
       }),
     });
     if (!response.ok) {
+      if (response.status === 429) {
+        console.warn('OpenAI rate limit reached. Skipping summaries for now.');
+        return '';
+      }
+      console.warn(`OpenAI request failed with status ${response.status}.`);
       throw new Error(`OpenAI request failed with status ${response.status}`);
     }
     const payload = await response.json();
-    const choice = payload.choices && payload.choices[0];
-    const message = choice && choice.message && choice.message.content;
-    return (message || '').trim();
+    const summary = payload?.choices?.[0]?.message?.content || '';
+    return summary.trim();
   }
 
-  async function enrichMatchesWithSummaries(matches) {
-    const results = [];
+  async function enrichMatchesWithSummaries(matches, apiKey) {
+    if (!apiKey) {
+      return matches.map((match) => ({ ...match, summary: '' }));
+    }
+    const enriched = [];
     for (const match of matches) {
-      let summary = '';
       try {
-        summary = await generateSummaryForMatch(match);
+        const summary = await fetchSummaryForMatch(match, apiKey);
+        enriched.push({ ...match, summary });
       } catch (error) {
-        console.warn('OpenAI summary generation failed, using fallback.', error);
-        if (match.status === 'completed') {
-          summary = `${match.teamA} and ${match.teamB} completed their clash. ${match.statusText || ''}`.trim();
-        } else if (match.status === 'live') {
-          summary = `${match.teamA} vs ${match.teamB} is currently live. ${match.statusText || ''}`.trim();
-        } else {
-          summary = `${match.teamA} vs ${match.teamB} is coming up soon.`;
-        }
+        console.warn('Unable to generate summary for match. Skipping.', error);
+        enriched.push({ ...match, summary: '' });
       }
-      results.push({ ...match, summary });
     }
-    return results;
+    return enriched;
   }
 
-  async function writeMatchesFile(matches) {
-    // Node.js environment: write to disk directly.
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  async function persistMatches(matches) {
+    if (isNode) {
+      await loadNodeDependencies();
+      if (!fsPromises || !pathModule) {
+        throw new Error('File system utilities are unavailable.');
+      }
+      const outputDir = pathModule.resolve(__dirname, '../data');
+      await fsPromises.mkdir(outputDir, { recursive: true });
+      const outputPath = pathModule.join(outputDir, 'matches.json');
+      await fsPromises.writeFile(outputPath, JSON.stringify(matches, null, 2), 'utf8');
+    }
+    if (typeof localStorage !== 'undefined') {
       try {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(__dirname, '../data/matches.json');
-        fs.writeFileSync(outputPath, JSON.stringify(matches, null, 2), 'utf8');
-        return outputPath;
-      } catch (error) {
-        console.error('Failed to write matches.json in Node environment.', error);
+        localStorage.setItem('cricscanner:matches', JSON.stringify(matches));
+      } catch (storageError) {
+        console.warn('Unable to cache matches in localStorage.', storageError);
       }
-      return null;
     }
-
-    // Browser environment: attempt to trigger a download/save operation.
-    try {
-      if (typeof window !== 'undefined') {
-        const blob = new Blob([JSON.stringify(matches, null, 2)], { type: 'application/json' });
-        if (window.showSaveFilePicker) {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: 'matches.json',
-            types: [
-              {
-                description: 'JSON Files',
-                accept: { 'application/json': ['.json'] },
-              },
-            ],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          return 'downloaded-via-file-picker';
-        }
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = 'matches.json';
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        URL.revokeObjectURL(url);
-        return 'downloaded-via-anchor';
-      }
-    } catch (error) {
-      console.error('Browser download of matches.json failed.', error);
-    }
-    return null;
   }
 
-  async function syncWithLocalStorage(matches) {
-    if (typeof window === 'undefined' || !window.CricStorage) {
-      return null;
-    }
-    const storage = window.CricStorage;
-    const data = await storage.getData();
-    const tournaments = Array.isArray(data.tournaments) ? [...data.tournaments] : [];
-    const matchesWithoutSource = Array.isArray(data.matches)
-      ? data.matches.filter((item) => item.externalSource !== SOURCE_NAME)
-      : [];
-    const existingCricApi = Array.isArray(data.matches)
-      ? data.matches.filter((item) => item.externalSource === SOURCE_NAME)
-      : [];
-    const existingByExternalId = new Map();
-    existingCricApi.forEach((item) => {
-      if (item.externalId) {
-        existingByExternalId.set(item.externalId, item);
-      }
-    });
-
-    const tournamentsByName = new Map();
-    tournaments.forEach((tournament) => {
-      tournamentsByName.set(String(tournament.name || '').toLowerCase(), tournament.id);
-    });
-
-    const ensureTournament = (name) => {
-      const key = String(name || 'Cricscanner Fixtures').toLowerCase();
-      if (tournamentsByName.has(key)) {
-        return tournamentsByName.get(key);
-      }
-      const newTournament = {
-        id: storage.generateId('tour'),
-        name: name || 'Cricscanner Fixtures',
-        location: '',
-        description: '',
-      };
-      tournaments.push(newTournament);
-      tournamentsByName.set(key, newTournament.id);
-      return newTournament.id;
-    };
-
-    const nextMatches = [...matchesWithoutSource];
-
-    matches.forEach((match) => {
-      const existing = match.externalId ? existingByExternalId.get(match.externalId) : null;
-      const tournamentId = ensureTournament(match.tournament);
-      const payload = {
-        id: existing ? existing.id : storage.generateId('match'),
-        tournamentId,
-        teamA: match.teamA,
-        teamB: match.teamB,
-        startTime: match.startTime,
-        endTime: '',
-        scoreA: match.scoreA,
-        scoreB: match.scoreB,
-        location: match.venue || '',
-        status: match.status,
-        statusText: match.statusText,
-        summary: match.summary,
-        externalSource: SOURCE_NAME,
-        externalId: match.externalId,
-      };
-      nextMatches.push(payload);
-    });
-
-    await storage.saveData({ tournaments, matches: nextMatches });
-    return { tournaments, matches: nextMatches };
-  }
-
-  async function performUpdate(options = {}) {
-    const { showNotification = false, invokedBySchedule = false, button } = options;
-    if (state.busy) {
-      return null;
-    }
-
-    ensureConfigured();
-    state.busy = true;
-
-    const targetButton = button || (!invokedBySchedule && typeof document !== 'undefined'
-      ? document.getElementById('syncMatchesAi')
-      : null);
-    const originalLabel = targetButton ? targetButton.textContent : null;
-
-    if (targetButton) {
-      targetButton.disabled = true;
-      targetButton.textContent = 'Syncing…';
-    }
-
+  async function runAutoUpdater() {
     try {
-      const rawMatches = await fetchMatchesFromCricApi();
-      const normalizedMatches = rawMatches
-        .map(normaliseMatch)
-        .filter((item) => item && item.teamA && item.teamB);
-      const matchesWithSummaries = await enrichMatchesWithSummaries(normalizedMatches);
-      const filePayload = matchesWithSummaries.map((match) => ({
-        tournament: match.tournament,
-        match: match.matchName,
-        startTime: match.startTime,
-        status: match.statusText || match.status,
-        phase: match.status,
-        scoreA: match.scoreA,
-        scoreB: match.scoreB,
-        teamA: match.teamA,
-        teamB: match.teamB,
-        venue: match.venue,
-        summary: match.summary,
-        externalId: match.externalId,
-        fetchedAt: new Date().toISOString(),
-      }));
-
-      await writeMatchesFile(filePayload);
-      await syncWithLocalStorage(matchesWithSummaries);
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('cricscanner:matches-synced', {
-            detail: { matches: matchesWithSummaries, source: SOURCE_NAME },
-          })
-        );
+      if (isNode) {
+        await loadNodeDependencies();
       }
-
-      if (showNotification && typeof window !== 'undefined') {
+      const cricapiKey = getEnvValue('CRICAPI_KEY');
+      if (!cricapiKey) {
+        throw new Error('CRICAPI_KEY environment variable is missing.');
+      }
+      const openAiKey = getEnvValue('OPENAI_API_KEY');
+      const matches = await fetchMatchesFromCricApi(cricapiKey);
+      const enrichedMatches = await enrichMatchesWithSummaries(matches, openAiKey);
+      await persistMatches(enrichedMatches);
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('cricscanner:matches-synced'));
+      }
+      if (typeof alert === 'function') {
         alert('✅ Matches synced successfully!');
+      } else {
+        console.log('✅ Matches synced successfully!');
       }
-
-      return matchesWithSummaries;
+      return enrichedMatches;
     } catch (error) {
-      console.error('Auto update failed', error);
-      if (showNotification && typeof window !== 'undefined') {
+      console.warn('⚠️ Failed to fetch matches, please try again', error);
+      if (typeof alert === 'function') {
         alert('⚠️ Failed to fetch matches, please try again');
       }
       throw error;
-    } finally {
-      if (targetButton) {
-        targetButton.disabled = false;
-        if (originalLabel) {
-          targetButton.textContent = originalLabel;
-        }
-      }
-      state.busy = false;
     }
   }
 
-  function scheduleAutomaticUpdates() {
-    if (typeof window === 'undefined') {
+  function ensureAutoRun() {
+    const scope = global || {};
+    if (scope.__cricscannerAutoUpdaterInterval) {
       return;
     }
-    if (state.intervalId) {
-      return;
-    }
-    state.intervalId = window.setInterval(() => {
-      performUpdate({ showNotification: false, invokedBySchedule: true }).catch(() => {
-        // Errors are already logged and alerts suppressed during scheduled runs.
+    scope.__cricscannerAutoUpdaterInterval = setInterval(() => {
+      runAutoUpdater().catch((error) => {
+        console.error('Automatic auto-updater run failed.', error);
       });
     }, SIX_HOURS_MS);
   }
 
-  function configure(partial) {
-    if (!partial || typeof partial !== 'object') {
-      return CONFIG;
-    }
-    if (partial.cricapiKey) {
-      CONFIG.cricapiKey = partial.cricapiKey;
-    }
-    if (partial.openAiKey) {
-      CONFIG.openAiKey = partial.openAiKey;
-    }
-    return CONFIG;
-  }
-
-  const AutoUpdater = {
-    run: (options = {}) => performUpdate(options),
-    schedule: () => scheduleAutomaticUpdates(),
-    configure,
-    config: CONFIG,
-  };
-
-  global.CricscannerAutoUpdaterConfig = CONFIG;
-  global.CricscannerAutoUpdater = AutoUpdater;
-
-  global.runAutoUpdater = function () {
-    return AutoUpdater.run({ showNotification: true });
-  };
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('DOMContentLoaded', () => {
-      scheduleAutomaticUpdates();
-    });
-  }
+  global.runAutoUpdater = runAutoUpdater;
+  ensureAutoRun();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = AutoUpdater;
+    module.exports = {
+      runAutoUpdater,
+    };
+    if (isNode && require.main === module) {
+      runAutoUpdater().catch((error) => {
+        console.error('Manual auto-updater execution failed.', error);
+        process.exitCode = 1;
+      });
+    }
   }
-})(typeof window !== 'undefined' ? window : globalThis);
+})(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : this);

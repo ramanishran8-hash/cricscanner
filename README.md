@@ -19,6 +19,23 @@ A modern, dark-mode cricket companion built with TailwindCSS and Luxon. Cricscan
 
 No build step is required. Open any of the HTML files in a modern browser to explore the experience. Changes made via the admin dashboard are saved to your browser's `localStorage`.
 
+### Environment-driven auto updates
+
+Automated match syncing lives in `public/js/auto-updater.js`. Install dependencies with `npm install` and provide credentials in a local `.env` file before running the utility:
+
+```
+OPENAI_API_KEY=your_openai_key_here
+CRICAPI_KEY=your_cricapi_key_here
+```
+
+From the project root you can trigger a refresh manually:
+
+```
+node public/js/auto-updater.js
+```
+
+The same helper is wired to the private admin console's **Sync Matches with AI** button and schedules itself to run every six hours. Environment variables are loaded with `dotenv`, so keep the `.env` file private (already ignored via `.gitignore`).
+
 ## Deployment notes
 
 - Deploy the contents of `/public` to your static host (e.g., Vercel). This exposes only the public dashboard and tournaments explorer.
