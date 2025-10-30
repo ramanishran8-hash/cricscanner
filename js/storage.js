@@ -1,7 +1,7 @@
 // storage.js
 const STORAGE_KEY = 'cricscannerData';
 
-// Utility function to deep-clone values safely
+// 🧩 Utility: safe deep clone
 const clone = (value) =>
   typeof structuredClone === 'function'
     ? structuredClone(value)
@@ -35,7 +35,7 @@ const defaultData = {
   matches: [],
 };
 
-// ====== Core localStorage utilities ======
+// ====== Core Local Storage Functions ======
 function getData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   return raw ? JSON.parse(raw) : clone(defaultData);
@@ -64,12 +64,17 @@ function deleteTournament(id) {
   saveData(data);
 }
 
-// ====== CricAPI Render Logic ======
+// ====== CricAPI Match Renderer ======
 document.addEventListener('DOMContentLoaded', () => {
   const wrapper = document.getElementById('matches-wrapper');
-  if (!wrapper) return; // no matches section on this page
+  if (!wrapper) return; // Skip if no matches container on this page
 
   function renderCricAPIMatches() {
+    // Prevent rapid duplicate re-renders
+    if (window.renderInProgress) return;
+    window.renderInProgress = true;
+    setTimeout(() => (window.renderInProgress = false), 1500);
+
     const stored = localStorage.getItem('cricapi_matches');
     if (!stored) {
       console.log('⚠️ No CricAPI data found in localStorage yet.');
@@ -77,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const matches = JSON.parse(stored);
-    wrapper.innerHTML = ''; // clear previous
+    wrapper.innerHTML = ''; // Clear old content
 
     matches.slice(0, 9).forEach((m) => {
       const div = document.createElement('div');
@@ -94,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('storage', renderCricAPIMatches);
 });
 
-// ====== Expose to global for admin.html ======
+// ====== Expose Globals for Admin ======
 window.getData = getData;
 window.saveData = saveData;
 window.upsertTournament = upsertTournament;
