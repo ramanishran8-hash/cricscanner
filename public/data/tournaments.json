@@ -1,0 +1,24 @@
+[
+  {
+    "id": "tour-1",
+    "name": "World Test Championship",
+    "location": "Global Venues",
+    "description": "Top-ranked nations compete across the globe.",
+    "pointsTable": [
+      { "team": "India", "points": 120 },
+      { "team": "Australia", "points": 112 },
+      { "team": "England", "points": 96 }
+    ]
+  },
+  {
+    "id": "tour-2",
+    "name": "Champions T20 League",
+    "location": "United States",
+    "description": "A high-octane franchise tournament under the lights.",
+    "pointsTable": [
+      { "team": "Seattle Strikers", "points": 10 },
+      { "team": "Miami Thunder", "points": 8 },
+      { "team": "Austin Comets", "points": 6 }
+    ]
+  }
+]
