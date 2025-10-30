@@ -229,3 +229,30 @@ window.CricStorage = {
   generateId,
   defaultData,
 };
+document.addEventListener("DOMContentLoaded", () => {
+  const wrapper = document.getElementById("matches-wrapper"); // create a div in HTML with this id
+
+  function renderCricAPIMatches() {
+    const stored = localStorage.getItem("cricapi_matches");
+    if (!stored) {
+      console.log("No CricAPI data found in localStorage yet.");
+      return;
+    }
+
+    const matches = JSON.parse(stored);
+    wrapper.innerHTML = ""; // clear previous
+
+    matches.slice(0, 5).forEach((m) => {
+      const div = document.createElement("div");
+      div.className = "p-4 mb-2 bg-slate-800 rounded-lg";
+      div.innerHTML = `
+        <h3 class="text-white font-semibold">${m.name}</h3>
+        <p class="text-sm text-slate-400">${m.status || "Match status unavailable"}</p>
+      `;
+      wrapper.appendChild(div);
+    });
+  }
+
+  renderCricAPIMatches();
+  window.addEventListener("storage", renderCricAPIMatches);
+});
