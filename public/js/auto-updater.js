@@ -1,12 +1,5 @@
 async function fetchCricAPIData() {
-  // Temporary: use a direct API key for testing
-  const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa";
-
-  if (!apiKey) {
-    console.error("❌ CricAPI key missing!");
-    return;
-  }
-
+  const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa"; // your CricAPI key
   const url = `https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`;
 
   try {
@@ -15,14 +8,14 @@ async function fetchCricAPIData() {
     const data = await response.json();
 
     if (!data || !data.data) {
-      console.error("⚠️ CricAPI returned no data:", data);
+      console.error("⚠️ CricAPI returned no match data:", data);
       return;
     }
 
-    console.log(`✅ ${data.data.length} matches fetched`);
+    console.log(`✅ ${data.data.length} matches fetched from CricAPI`);
     localStorage.setItem("cricapi_matches", JSON.stringify(data.data));
 
-    // Print first few matches
+    // Print first few matches to verify
     data.data.slice(0, 3).forEach((m) => console.log("➡️", m.name, "-", m.status));
   } catch (err) {
     console.error("❌ Error fetching CricAPI data", err);
