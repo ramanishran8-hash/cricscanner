@@ -42,3 +42,4 @@ document.addEventListener("DOMContentLoaded", () => {
   renderCricAPIMatches();
   window.addEventListener("storage", renderCricAPIMatches);
 });
+
