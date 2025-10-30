@@ -1,0 +1,9 @@
+{
+  "name": "cricscanner",
+  "version": "1.0.0",
+  "description": "Cricscanner static site",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
