@@ -22,7 +22,7 @@ async function fetchLatestMatches() {
 
     console.log("📡 Fetching latest matches from CricAPI...");
 
-    const res = await fetch("https://api.cricapi.com/v1/currentMatches?apikey=YOUR_API_KEY_HERE&offset=0");
+    const res = await fetch("https://api.cricapi.com/v1/currentMatches?apikey=7282955f-2245-4cc4-becb-1f22ead081fa&offset=0");
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const data = await res.json();
 
