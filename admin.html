@@ -23,7 +23,7 @@
       };
     </script>
 
-    <!-- Luxon for time management -->
+    <!-- Luxon for time/date -->
     <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   </head>
 
@@ -35,56 +35,63 @@
           <p class="text-xs uppercase tracking-[0.35em] text-emerald-200/80">Cricscanner Control Room</p>
           <h1 class="mt-2 text-4xl font-bold text-white">Admin Dashboard</h1>
           <p class="mt-3 max-w-2xl text-sm text-slate-300">
-            Manage tournaments and matches. All times are in Eastern Time (ET). Updates reflect instantly across the public dashboard.
+            Manage tournaments and matches. All times are stored and interpreted in Eastern Time (ET).
+            Updates reflect instantly across the public dashboard.
           </p>
         </div>
         <a href="index.html" class="text-sm font-semibold text-emerald-300 transition hover:text-emerald-200">← Back to dashboard</a>
       </div>
     </header>
 
-    <!-- MAIN -->
+    <!-- MAIN (unchanged content from your current admin.html) -->
     <main class="mx-auto max-w-6xl px-6 py-12">
-      <!-- your full main body as-is (unchanged from your version) -->
-      <!-- KEEP all your forms and sections exactly the same here -->
+      <!-- Keep your Tournaments and Matches sections here exactly as-is -->
     </main>
 
     <!-- FOOTER -->
     <footer class="border-t border-slate-800/60 bg-slate-950/70">
       <div class="mx-auto max-w-6xl px-6 py-6 text-center text-sm text-slate-500">
-        Built with TailwindCSS and Luxon • Updated live every minute
+        Built with TailwindCSS + Luxon • Auto-updated dashboard
       </div>
     </footer>
 
-    <!-- ✅ Moved storage.js BELOW body to ensure it's loaded before script -->
+    <!-- ✅ STORAGE SCRIPT -->
     <script src="js/storage.js"></script>
 
-    <!-- ADMIN SCRIPT -->
+    <!-- ✅ ADMIN SCRIPT -->
     <script>
       const { DateTime } = luxon;
 
-      // ✅ Ensure CricStorage is ready before rendering
+      /** Wait until storage.js is ready before using getData */
       function waitForStorageAndRender() {
         if (!window.CricStorage || typeof window.CricStorage.getData !== "function") {
           console.warn("⚠️ Waiting for storage.js to load...");
-          setTimeout(waitForStorageAndRender, 500);
+          setTimeout(waitForStorageAndRender, 400);
           return;
         }
-
         console.log("✅ storage.js ready — initializing admin panel");
         initializeAdmin();
       }
 
       function initializeAdmin() {
-        // --- All your original JS code goes inside this function ---
-        // This includes loadState(), renderAll(), event listeners, etc.
-        // Paste your original full admin script here, as-is.
+        const {
+          getData,
+          upsertTournament,
+          deleteTournament,
+          upsertMatch,
+          deleteMatch,
+          generateId,
+        } = window.CricStorage;
 
         function loadState() {
-          return window.CricStorage.getData();
+          return getData();
         }
 
-        // Keep all your functions: renderAll(), populateTournamentSelect(), etc.
-        // and end with:
+        /** All your render, populate, event listener, and form logic */
+        // Paste your previous JS logic here (renderAll, populateTournamentSelect, etc.)
+        // Leave everything else unchanged.
+
+        // At the end:
         renderAll();
       }
 
