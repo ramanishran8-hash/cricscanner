@@ -3,7 +3,7 @@
 let lastUpdateTime = 0;
 let fetchInProgress = false;
 const updateInterval = 15 * 60 * 1000; // 15 minutes
-const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa"; // replace with your key
+const apiKey = "7282955f-2245-4ccd-becb-1f22ead081fa"; // your key
 
 async function fetchLatestMatches() {
   if (fetchInProgress) return; // prevent overlap
@@ -41,25 +41,24 @@ async function fetchLatestMatches() {
       return;
     }
 
-    // Parse match list
+    // Parse matches
     const matches = data.data.map(m => ({
       id: m.id || m.unique_id || Math.random().toString(36).slice(2),
       name: m.name || `${m.teamInfo?.[0]?.name || "Team A"} vs ${m.teamInfo?.[1]?.name || "Team B"}`,
-      venue: m.venue || m.ground || "",
+      venue: m.venue || m.ground || "Unknown Venue",
       status: m.status || "Upcoming match",
       teamA: m.teamInfo?.[0]?.name || "Team A",
       teamB: m.teamInfo?.[1]?.name || "Team B",
       startTime: m.dateTimeGMT ? new Date(m.dateTimeGMT).toISOString() : null,
     }));
 
-    // Save to localStorage (for instant dashboard load)
+    // Save locally
     if (window.CricStorage && typeof window.CricStorage.setData === "function") {
       window.CricStorage.setData("matches", matches);
     } else {
       localStorage.setItem("matches", JSON.stringify(matches));
     }
 
-    // Optionally, save to /data/matches.json (if you automate deployment)
     console.log(`✅ ${matches.length} matches saved from CricAPI.`);
     lastUpdateTime = now;
   } catch (err) {
@@ -69,8 +68,8 @@ async function fetchLatestMatches() {
   }
 }
 
-// Run once when the page loads
+// Run once on load
 fetchLatestMatches();
 
-// Then schedule updates every 15 minutes
+// Then auto-refresh every 15 minutes
 setInterval(fetchLatestMatches, updateInterval);
