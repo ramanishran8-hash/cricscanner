@@ -10,7 +10,7 @@ let lastUpdateTime = localStorage.getItem("lastUpdateTime") || 0;
 
 // Update interval: 30 minutes
 const updateInterval = 30 * 60 * 1000; // 30 min in ms
-const apiKey = process.env.CRIC_API_KEY;
+const apiKey = process.env.NEXT_PUBLIC_CRICAPI_KEY || "fallback-key-if-needed";
 
 async function fetchLatestMatches() {
   // Prevent multiple overlapping fetches
