@@ -1,14 +1,14 @@
 {
+  "version": 2,
   "builds": [
+    { "src": "api/**/*.js", "use": "@vercel/node" },
     { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/robots.txt", "dest": "/public/robots.txt" },
+    { "src": "/api/(.*)", "dest": "/api/$1.js" },
     {
       "src": "/private/admin.html",
-      "has": [
-        { "type": "query", "key": "key", "value": "RAMAN2025" }
-      ],
+      "has": [{ "type": "query", "key": "key", "value": "RAMAN2025" }],
       "dest": "/public/private/admin.html"
     },
     { "src": "/private/(.*)", "status": 403, "dest": "/" },
