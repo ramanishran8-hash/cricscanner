@@ -1,7 +1,7 @@
 // /public/js/auto-updater.js
 // 🏏 CricScanner Auto-Updater Script
-// Fetches and updates match data securely from your Vercel proxy API
-// Updates every 30 minutes to avoid exceeding daily CricAPI limits.
+// Safely fetches both matches and tournaments from your Vercel proxy API
+// Runs every 30 minutes to avoid exceeding CricAPI hit limits.
 
 let fetchInProgress = false;
 let lastUpdateTime = localStorage.getItem("lastUpdateTime") || 0;
@@ -9,22 +9,23 @@ let lastUpdateTime = localStorage.getItem("lastUpdateTime") || 0;
 // Update interval — 30 minutes (in ms)
 const updateInterval = 30 * 60 * 1000;
 
-// Function to fetch latest matches
+// Function to fetch latest data
 async function fetchLatestMatches() {
-  if (fetchInProgress) return; // prevent multiple overlaps
+  if (fetchInProgress) return; // Prevent multiple overlapping fetches
   fetchInProgress = true;
 
   try {
     const now = Date.now();
 
-    // Skip update if last one was <30 min ago
+    // Skip if last update was within 30 minutes
     if (now - lastUpdateTime < updateInterval) {
       console.log("⏱ Skipping update — last update < 30 min ago");
       fetchInProgress = false;
       return;
     }
 
-    console.log("🏏 Fetching latest matches from your proxy API...");
+    console.log("🏏 Fetching latest matches & tournaments from proxy API...");
+
     const res = await fetch("/api/fetchMatches");
 
     if (!res.ok) {
@@ -41,12 +42,21 @@ async function fetchLatestMatches() {
       return;
     }
 
-    // Save data locally
-    localStorage.setItem("matches", JSON.stringify(data.matches));
+    // ✅ Save matches and tournaments locally
+    localStorage.setItem("matches", JSON.stringify(data.matches || []));
+    localStorage.setItem("tournaments", JSON.stringify(data.tournaments || []));
     localStorage.setItem("lastUpdateTime", now);
-    console.log(`✅ ${data.matches.length} matches saved successfully.`);
+
+    console.log(`✅ ${data.matches.length} matches & ${data.tournaments.length} tournaments saved successfully.`);
   } catch (err) {
-    console.error("❌ Error fetching matches:", err);
+    console.error("❌ Error fetching data:", err);
+
+    // ⚙️ Optional fallback: load old data if available
+    const savedMatches = localStorage.getItem("matches");
+    const savedTournaments = localStorage.getItem("tournaments");
+    if (savedMatches || savedTournaments) {
+      console.log("📦 Loaded cached data from previous fetch.");
+    }
   } finally {
     fetchInProgress = false;
   }
