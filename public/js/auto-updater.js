@@ -18,7 +18,7 @@ async function fetchLatestMatches() {
     }
 
     console.log("🏏 Fetching latest matches from CricAPI...");
-    const res = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}&offset=0`);
+  const res = await fetch(`https://api.cricketdata.org/v1/currentMatches?apikey=${apiKey}&offset=0`);
 
     if (!res.ok) {
       console.warn("⚠️ CricAPI request failed:", res.status, res.statusText);
