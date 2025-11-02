@@ -10,7 +10,7 @@ let lastUpdateTime = localStorage.getItem("lastUpdateTime") || 0;
 
 // Update interval: 30 minutes
 const updateInterval = 30 * 60 * 1000; // 30 min in ms
-const apiKey = "7282955f-2245-4cc4-becb-1f22ead081fa"; // <-- Replace this with your CricAPI key
+const apiKey = process.env.CRIC_API_KEY;
 
 async function fetchLatestMatches() {
   // Prevent multiple overlapping fetches
