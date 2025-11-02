@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CricScanner Live Dashboard</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -16,8 +18,14 @@
       },
     };
   </script>
+
+  <!-- Luxon for time formatting -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+
+  <!-- Storage helper (if needed) -->
   <script src="js/storage.js"></script>
+  <!-- Auto-updater script -->
+  <script src="js/auto-updater.js"></script>
 </head>
 
 <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
@@ -34,13 +42,18 @@
       </button>
     </div>
 
+    <!-- Tournaments -->
     <section>
       <h2 class="text-2xl font-semibold text-emerald-300 mb-3">Tournaments</h2>
       <div id="tournaments-wrapper" class="grid gap-4"></div>
     </section>
 
+    <!-- Matches -->
     <section class="mt-12">
-      <h2 class="text-2xl font-semibold text-sky-300 mb-3">Live Matches</h2>
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-semibold text-sky-300 mb-3">Live Matches</h2>
+        <p id="lastUpdated" class="text-sm text-slate-500"></p>
+      </div>
       <div id="matches-wrapper" class="grid gap-4"></div>
     </section>
 
@@ -56,21 +69,32 @@
       const tournamentsContainer = document.getElementById("tournaments-wrapper");
       const matchesContainer = document.getElementById("matches-wrapper");
       const refreshBtn = document.getElementById("refresh-btn");
+      const lastUpdatedEl = document.getElementById("lastUpdated");
 
       async function loadDashboard() {
         let matches = [];
         let tournaments = [];
 
         try {
-          // ✅ 1. Load localStorage data (from admin panel if same domain)
-          const data = window.CricStorage ? window.CricStorage.getData() : null;
-          if (data && (data.matches?.length || data.tournaments?.length)) {
-            matches = data.matches || [];
-            tournaments = data.tournaments || [];
-          } else {
-            // ✅ 2. Fallback — fetch from public JSON files
+          // ✅ 1. Load data from localStorage (auto-updater saves this)
+          const storedMatches = localStorage.getItem("matches");
+          const storedTournaments = localStorage.getItem("tournaments");
+          const lastUpdateTime = localStorage.getItem("lastUpdateTime");
+
+          if (storedMatches) matches = JSON.parse(storedMatches);
+          if (storedTournaments) tournaments = JSON.parse(storedTournaments);
+
+          if (lastUpdateTime && lastUpdatedEl) {
+            const t = new Date(parseInt(lastUpdateTime, 10));
+            lastUpdatedEl.textContent = `Last updated: ${t.toLocaleString()}`;
+          }
+
+          // ✅ 2. If empty, fallback to static JSON (optional)
+          if (matches.length === 0) {
             const matchRes = await fetch("/data/matches.json");
             if (matchRes.ok) matches = await matchRes.json();
+          }
+          if (tournaments.length === 0) {
             const tourRes = await fetch("/data/tournaments.json");
             if (tourRes.ok) tournaments = await tourRes.json();
           }
@@ -91,14 +115,17 @@
 
         // 🏏 Render Matches
         matchesContainer.innerHTML = matches.length
-          ? matches.map(m => `
-            <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow shadow-blue-900/30">
-              <h4 class="text-lg font-semibold text-white">${m.name || `${m.teamA} vs ${m.teamB}`}</h4>
-              <p class="text-slate-400 mt-1">${m.status || 'Upcoming match'}</p>
-              <p class="text-slate-500 text-sm">${m.venue || ''}</p>
-              ${m.startTime ? `<p class="text-slate-400 text-xs mt-1">Start: ${DateTime.fromISO(m.startTime).toFormat("ccc, LLL dd • hh:mm a 'ET'")}</p>` : ''}
-            </div>
-          `).join('')
+          ? matches.map(m => {
+              const teams = m.teamInfo?.map(t => t.name).join(" vs ") || `${m.teamA || 'Team A'} vs ${m.teamB || 'Team B'}`;
+              return `
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow shadow-blue-900/30 hover:shadow-glow transition">
+                  <h4 class="text-lg font-semibold text-white">${m.name || teams}</h4>
+                  <p class="text-slate-400 mt-1">${m.status || 'Upcoming match'}</p>
+                  <p class="text-slate-500 text-sm">${m.venue || ''}</p>
+                  ${m.date ? `<p class="text-slate-400 text-xs mt-1">Match Date: ${DateTime.fromISO(m.date).toFormat("ccc, LLL dd • hh:mm a")}</p>` : ''}
+                </div>
+              `;
+            }).join('')
           : `<p class="text-slate-500">No matches available.</p>`;
       }
 
@@ -107,7 +134,12 @@
 
       // Manual & Auto Refresh
       refreshBtn.addEventListener("click", loadDashboard);
-      setInterval(loadDashboard, 60000);
+      setInterval(loadDashboard, 60000); // refresh every 60s
+
+      // Auto-update on localStorage change
+      window.addEventListener("storage", e => {
+        if (e.key === "matches" || e.key === "tournaments") loadDashboard();
+      });
     });
   </script>
 </body>
