@@ -1,68 +1,61 @@
 // /public/js/auto-updater.js
-// CricScanner Auto-Updater Script
-// Safely fetches match data from CricAPI every 30 minutes
-// and avoids exceeding daily API hit limits.
+// 🏏 CricScanner Auto-Updater Script
+// Fetches and updates match data securely from your Vercel proxy API
+// Updates every 30 minutes to avoid exceeding daily CricAPI limits.
 
 let fetchInProgress = false;
-
-// Get the last update time (persisted in localStorage)
 let lastUpdateTime = localStorage.getItem("lastUpdateTime") || 0;
 
-// Update interval: 30 minutes
-const updateInterval = 30 * 60 * 1000; // 30 min in ms
-const res = await fetch('/api/fetchMatches');
+// Update interval — 30 minutes (in ms)
+const updateInterval = 30 * 60 * 1000;
 
+// Function to fetch latest matches
 async function fetchLatestMatches() {
-  // Prevent multiple overlapping fetches
-  if (fetchInProgress) return;
+  if (fetchInProgress) return; // prevent multiple overlaps
   fetchInProgress = true;
 
   try {
     const now = Date.now();
 
-    // Check if 30 minutes have passed
+    // Skip update if last one was <30 min ago
     if (now - lastUpdateTime < updateInterval) {
-      console.log("⏳ Skipping update — last update < 30 min ago");
+      console.log("⏱ Skipping update — last update < 30 min ago");
       fetchInProgress = false;
       return;
     }
 
-    console.log("🏏 Fetching latest matches from CricAPI...");
-
-    const res = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}&offset=0`);
+    console.log("🏏 Fetching latest matches from your proxy API...");
+    const res = await fetch("/api/fetchMatches");
 
     if (!res.ok) {
-      console.warn("⚠️ CricAPI request failed:", res.status, res.statusText);
+      console.warn("⚠️ Proxy API request failed:", res.status, res.statusText);
       fetchInProgress = false;
       return;
     }
 
     const data = await res.json();
 
-    // Handle invalid or blocked responses
-    if (data.status === "error" || data.status === "failure" || data.reason) {
-      console.warn(`🚫 CricAPI blocked or failed: ${data.reason || "Unknown reason"}`);
+    if (!data || data.status !== "success") {
+      console.warn("⚠️ Invalid response from proxy API:", data);
       fetchInProgress = false;
       return;
     }
 
-    // Save matches to localStorage
-    localStorage.setItem("matches", JSON.stringify(data.data || []));
-    localStorage.setItem("lastUpdateTime", now.toString());
-    lastUpdateTime = now;
-
-    console.log(`✅ ${data.data?.length || 0} matches saved from CricAPI.`);
-
+    // Save data locally
+    localStorage.setItem("matches", JSON.stringify(data.matches));
+    localStorage.setItem("lastUpdateTime", now);
+    console.log(`✅ ${data.matches.length} matches saved successfully.`);
   } catch (err) {
     console.error("❌ Error fetching matches:", err);
+  } finally {
+    fetchInProgress = false;
   }
-
-  fetchInProgress = false;
 }
 
-// Run once immediately
+// Run once on load
 fetchLatestMatches();
 
-// Then check every 30 minutes
-setInterval(fetchLatestMatches, 30 * 60 * 1000);
-console.log("⏱ Auto-updater initialized: will fetch every 30 minutes");
+// Schedule automatic updates every 30 minutes
+setInterval(fetchLatestMatches, updateInterval);
+
+console.log("🚀 Auto-updater initialized: will fetch every 30 minutes.");
