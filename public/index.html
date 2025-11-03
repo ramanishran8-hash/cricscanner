@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CricScanner Live</title>
 
-  <!-- Tailwind CSS CDN (for development; switch to PostCSS in prod) -->
+  <!-- Tailwind (for dev only, switch to PostCSS for prod) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
@@ -20,6 +20,7 @@
     }
   </style>
 </head>
+
 <body class="min-h-screen flex flex-col items-center py-10 px-4">
 
   <!-- Header -->
@@ -58,9 +59,8 @@
 
   <!-- Scripts -->
   <script src="/js/auto-updater.js"></script>
-  <script>
-    // 🏏 Match Display Logic
 
+  <script>
     const matchListEl = document.getElementById("matchList");
     const noMatchesMsg = document.getElementById("noMatchesMsg");
 
@@ -80,16 +80,22 @@
       });
     });
 
-    // Function to render matches
     function renderMatches() {
       const data = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
       matchListEl.innerHTML = "";
 
       const filtered = data.filter(m => {
         const s = (m.status || "").toLowerCase();
-        if (activeTab === "live") return s.includes("live") || s.includes("innings") || s.includes("stumps");
-        if (activeTab === "upcoming") return s.includes("upcoming") || s.includes("not started") || s.includes("scheduled");
-        if (activeTab === "recent") return s.includes("completed") || s.includes("finished") || s.includes("result");
+
+        if (activeTab === "live")
+          return /(live|innings|stumps|in progress|day|lunch|tea|drinks|break)/i.test(s);
+
+        if (activeTab === "upcoming")
+          return /(upcoming|not started|scheduled|start)/i.test(s);
+
+        if (activeTab === "recent")
+          return /(completed|finished|result|end)/i.test(s);
+
         return false;
       });
 
@@ -140,7 +146,7 @@
       });
     }
 
-    // Re-render when matches update
+    // re-render when storage updates
     window.addEventListener("storage", e => {
       if (e.key === "cricscanner_matches") {
         console.log("🔄 Matches updated");
@@ -148,7 +154,6 @@
       }
     });
 
-    // Initial render
     renderMatches();
   </script>
 </body>
