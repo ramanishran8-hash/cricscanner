@@ -67,9 +67,28 @@
             const s = (m.status || "").toLowerCase();
 
             if (status === "Live")
-              return s.includes("live") || s.includes("inning") || s.includes("stump") || s.includes("day");
+              return (
+                s.includes("live") ||
+                s.includes("inning") ||
+                s.includes("day") ||
+                s.includes("stump") ||
+                s.includes("break")
+              );
+
             if (status === "Upcoming")
-              return s.includes("upcoming") || s.includes("scheduled") || s.includes("start") || s.includes("fixture");
+              return (
+                s.includes("upcoming") ||
+                s.includes("scheduled") ||
+                s.includes("start") ||
+                s.includes("fixture") ||
+                s.includes("match not started") ||
+                s.includes("yet to start") ||
+                s.includes("to be played") ||
+                s.includes("starts in") ||
+                s === "" ||
+                s.includes("vs")
+              );
+
             if (status === "Completed" || status === "Recent")
               return (
                 s.includes("won") ||
@@ -77,8 +96,10 @@
                 s.includes("draw") ||
                 s.includes("abandoned") ||
                 s.includes("complete") ||
-                s.includes("finished")
+                s.includes("finished") ||
+                s.includes("no result")
               );
+
             return true;
           });
 
@@ -97,6 +118,13 @@
                       </h3>
                       <p class="text-slate-400 text-sm mt-1">${m.status || "Match info unavailable"}</p>
                       <p class="text-slate-500 text-xs mt-1">${m.venue?.name || ""}</p>
+                      ${
+                        m.startTime
+                          ? `<p class="text-slate-400 text-xs mt-1">Start: ${DateTime.fromISO(m.startTime).toFormat(
+                              "ccc, LLL dd • hh:mm a"
+                            )}</p>`
+                          : ""
+                      }
                     </div>`
                   )
                   .join("")
