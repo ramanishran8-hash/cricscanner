@@ -44,20 +44,21 @@
         let matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
         let tournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
 
-        // 🏆 Render Tournaments
+        // 🏆 Render tournaments
         function renderTournaments() {
           tournamentsContainer.innerHTML =
             tournaments.length > 0
               ? tournaments
                   .slice(0, 6)
                   .map(
-                    (t) => `<div class="px-6 py-3 bg-slate-800 rounded-full text-white font-semibold">${t.name || "Unknown"}</div>`
+                    (t) =>
+                      `<div class="px-6 py-3 bg-slate-800 rounded-full text-white font-semibold">${t.name || "Unknown"}</div>`
                   )
                   .join("")
               : `<p class="text-slate-500">No tournaments available right now.</p>`;
         }
 
-        // 🧠 Match classifier
+        // 🧠 Classify match type
         function classifyMatch(m) {
           const s = (m.status || "").toLowerCase();
           if (!s) return "upcoming";
@@ -67,7 +68,14 @@
           return "upcoming";
         }
 
-        // 🎨 Render modern match cards
+        // 🖼️ Get logo path
+        function getLogo(teamName) {
+          if (!teamName) return "/public/logos/default.png";
+          const safe = teamName.toLowerCase().replace(/\s+/g, "");
+          return `/public/logos/${safe}.png`;
+        }
+
+        // 🎨 Render matches
         function renderMatches(status = "Live") {
           const filtered = matches.filter((m) => classifyMatch(m) === status.toLowerCase());
           const show = filtered.slice(0, 6);
@@ -75,8 +83,17 @@
           matchesContainer.innerHTML =
             show.length > 0
               ? show
-                  .map(
-                    (m) => `
+                  .map((m) => {
+                    const t1 = m.teamInfo?.[0]?.name || m.teamA || "Team A";
+                    const t2 = m.teamInfo?.[1]?.name || m.teamB || "Team B";
+                    const s1 = m.score?.[0]
+                      ? `${m.score[0].r || 0}/${m.score[0].w ?? ""} ${m.score[0].o ? `(${m.score[0].o} ov)` : ""}`
+                      : "";
+                    const s2 = m.score?.[1]
+                      ? `${m.score[1].r || 0}/${m.score[1].w ?? ""} ${m.score[1].o ? `(${m.score[1].o} ov)` : ""}`
+                      : "";
+
+                    return `
                     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:scale-[1.02] hover:border-emerald-500 transition-transform duration-200">
                       <div class="flex justify-between items-center mb-3">
                         <span class="text-xs uppercase tracking-wide ${
@@ -89,14 +106,20 @@
                         <span class="text-xs text-slate-500">${m.matchType?.toUpperCase() || "T20"}</span>
                       </div>
 
-                      <div class="flex flex-col gap-2 mb-2">
-                        <div class="flex justify-between">
-                          <p class="font-semibold text-lg text-white">${m.teamInfo?.[0]?.name || m.teamA}</p>
-                          <p class="text-slate-400 text-sm">${m.score?.[0]?.r || ""}${m.score?.[0]?.w ? "/" + m.score?.[0]?.w : ""}</p>
+                      <div class="flex flex-col gap-3 mb-3">
+                        <div class="flex justify-between items-center">
+                          <div class="flex items-center gap-2">
+                            <img src="${getLogo(t1)}" onerror="this.src='/public/logos/default.png'" alt="${t1}" class="w-6 h-6 rounded-full border border-slate-700" />
+                            <p class="font-semibold text-lg text-white">${t1}</p>
+                          </div>
+                          <p class="text-emerald-400 text-sm font-medium">${s1}</p>
                         </div>
-                        <div class="flex justify-between">
-                          <p class="font-semibold text-lg text-white">${m.teamInfo?.[1]?.name || m.teamB}</p>
-                          <p class="text-slate-400 text-sm">${m.score?.[1]?.r || ""}${m.score?.[1]?.w ? "/" + m.score?.[1]?.w : ""}</p>
+                        <div class="flex justify-between items-center">
+                          <div class="flex items-center gap-2">
+                            <img src="${getLogo(t2)}" onerror="this.src='/public/logos/default.png'" alt="${t2}" class="w-6 h-6 rounded-full border border-slate-700" />
+                            <p class="font-semibold text-lg text-white">${t2}</p>
+                          </div>
+                          <p class="text-emerald-400 text-sm font-medium">${s2}</p>
                         </div>
                       </div>
 
@@ -107,8 +130,12 @@
                           ? `<p class="text-slate-400 text-xs mt-1">Start: ${DateTime.fromISO(m.startTime).toFormat("ccc, LLL dd • hh:mm a")}</p>`
                           : ""
                       }
-                    </div>`
-                  )
+
+                      <a href="${m.matchUrl || "#"}" target="_blank" class="mt-3 inline-block text-center w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-sm font-semibold py-2 rounded-xl transition">
+                        View Full Scorecard
+                      </a>
+                    </div>`;
+                  })
                   .join("")
               : `<p class="text-slate-500">No ${status.toLowerCase()} matches right now.</p>`;
         }
@@ -116,6 +143,7 @@
         renderTournaments();
         renderMatches("Live");
 
+        // 🔘 Tab switching
         tabButtons.forEach((btn) => {
           btn.addEventListener("click", () => {
             tabButtons.forEach((b) => b.classList.remove("bg-emerald-500", "text-slate-900"));
@@ -124,16 +152,14 @@
           });
         });
 
-        // 🔄 Auto-refresh from localStorage updates
+        // 🔄 Auto refresh on localStorage update
         window.addEventListener("storage", (e) => {
           if (e.key === "cricscanner_matches") {
             matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
-            console.log("🔁 Matches updated");
             renderMatches(document.querySelector(".tab-btn.bg-emerald-500")?.dataset.status || "Live");
           }
           if (e.key === "cricscanner_tournaments") {
             tournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
-            console.log("🔁 Tournaments updated");
             renderTournaments();
           }
         });
