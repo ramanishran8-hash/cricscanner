@@ -3,46 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CricScanner Live</title>
+  <title>CricScanner | Live Cricket Dashboard</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
 </head>
 
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+<body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
   <main class="max-w-6xl mx-auto px-6 py-10">
     <h1 class="text-4xl font-bold text-emerald-400 mb-10 flex items-center gap-2">
-      🏏 CricScanner Live
+      🏏 CricScanner Live Dashboard
     </h1>
 
     <!-- 🌍 Popular Tournaments -->
     <section class="mb-10">
-      <h2 class="text-2xl font-semibold mb-4 text-white">ALL Tournaments</h2>
+      <h2 class="text-2xl font-semibold mb-4 text-white">All Tournaments</h2>
       <div id="tournaments" class="flex flex-wrap gap-3"></div>
     </section>
 
-    <!-- 🏏 Match Section -->
+    <!-- 🏏 Matches -->
     <section>
-      <h2 class="text-2xl font-semibold mb-3 text-white">Matches</h2>
+      <h2 class="text-2xl font-semibold mb-4 text-white">Matches</h2>
 
-      <!-- Tabs -->
       <div class="flex gap-3 mb-6">
         <button class="tab-btn bg-emerald-500 px-4 py-2 rounded-full font-semibold text-slate-900" data-status="Live">Live</button>
         <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Upcoming">Upcoming</button>
         <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Completed">Recent</button>
       </div>
 
-      <!-- Matches Wrapper -->
       <div id="matches" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
     </section>
   </main>
 
   <script>
     const { DateTime } = luxon;
-    const matchesContainer = document.getElementById("matches");
     const tournamentsContainer = document.getElementById("tournaments");
+    const matchesContainer = document.getElementById("matches");
     const tabButtons = document.querySelectorAll(".tab-btn");
 
-    // 🏏 Get logo for team (major teams get real logo, others get default)
+    // 🏏 Logo or emoji fallback
     function getLogo(teamName) {
       if (!teamName) return "/logos/default.png";
       const safe = teamName.toLowerCase().replace(/\s+/g, "");
@@ -51,8 +50,34 @@
         "newzealand", "southafrica", "westindies", "afghanistan", "zimbabwe",
         "nepal", "ireland", "scotland", "netherlands"
       ];
+
+      // ✅ Return logo image if exists
       if (knownTeams.includes(safe)) return `/logos/${safe}.png`;
-      return "/logos/default.png";
+
+      // 🌍 Fallback to emoji SVG
+      const emojiFlags = {
+        india: "🇮🇳",
+        australia: "🇦🇺",
+        england: "🏴",
+        pakistan: "🇵🇰",
+        srilanka: "🇱🇰",
+        bangladesh: "🇧🇩",
+        newzealand: "🇳🇿",
+        southafrica: "🇿🇦",
+        westindies: "🌴",
+        afghanistan: "🇦🇫",
+        zimbabwe: "🇿🇼",
+        nepal: "🇳🇵",
+        ireland: "🇮🇪",
+        scotland: "🏴",
+        netherlands: "🇳🇱"
+      };
+      const flag = emojiFlags[safe];
+      if (flag)
+        return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><text y='50%' x='50%' dominant-baseline='middle' text-anchor='middle' font-size='48'>${flag}</text></svg>`;
+
+      // Default cricket ball fallback
+      return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><circle cx='32' cy='32' r='30' fill='red' stroke='white' stroke-width='4'/></svg>`;
     }
 
     // 🎯 Render tournaments
@@ -65,27 +90,29 @@
         : `<p class="text-slate-400">No tournaments available right now.</p>`;
     }
 
-    // 🏏 Render matches by status
+    // 🏏 Render matches
     function renderMatches(status) {
       const matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
       const filtered = matches.filter(m => m.status && m.status.toLowerCase().includes(status.toLowerCase()));
 
       matchesContainer.innerHTML = filtered.length
         ? filtered.map(m => `
-            <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow hover:shadow-lg transition relative">
+            <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow hover:shadow-lg transition">
               <div class="flex justify-between mb-2">
-                <span class="text-xs uppercase tracking-wider text-red-400">${m.status || "Match"}</span>
-                <span class="text-xs uppercase text-slate-400">${m.matchType || ""}</span>
+                <span class="text-xs uppercase text-emerald-400 font-semibold">${m.status || "Match"}</span>
+                <span class="text-xs text-slate-400">${m.matchType || ""}</span>
               </div>
               <div class="flex items-center mb-1">
-                <img src="${getLogo(m.teamA)}" alt="${m.teamA}" class="w-6 h-6 rounded-full mr-2">
-                <span class="font-semibold text-white">${m.teamA || ""} ${m.scoreA || ""}</span>
+                <img src="${getLogo(m.teamA)}" alt="${m.teamA}" class="w-8 h-8 rounded-full object-cover mr-2 border border-slate-700">
+                <span class="font-semibold text-white">${m.teamA || ""}</span>
+                <span class="ml-auto text-slate-300 font-bold">${m.scoreA || ""}</span>
               </div>
-              <div class="flex items-center mb-2">
-                <img src="${getLogo(m.teamB)}" alt="${m.teamB}" class="w-6 h-6 rounded-full mr-2">
-                <span class="font-semibold text-white">${m.teamB || ""} ${m.scoreB || ""}</span>
+              <div class="flex items-center mb-3">
+                <img src="${getLogo(m.teamB)}" alt="${m.teamB}" class="w-8 h-8 rounded-full object-cover mr-2 border border-slate-700">
+                <span class="font-semibold text-white">${m.teamB || ""}</span>
+                <span class="ml-auto text-slate-300 font-bold">${m.scoreB || ""}</span>
               </div>
-              <p class="text-slate-400 text-sm mb-3">${m.statusNote || "No update available."}</p>
+              <p class="text-slate-400 text-sm mb-3">${m.statusNote || "Match details coming soon"}</p>
               <button class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-semibold py-2 rounded-full transition">
                 View Full Scorecard
               </button>
@@ -94,7 +121,7 @@
         : `<p class="text-slate-500">No ${status.toLowerCase()} matches right now.</p>`;
     }
 
-    // 🧠 On load + tab switching
+    // 🧠 Page initialization
     document.addEventListener("DOMContentLoaded", () => {
       renderTournaments();
       renderMatches("Live");
@@ -107,17 +134,13 @@
         });
       });
 
-      // Auto refresh on new data saved
+      // Refresh on localStorage updates
       window.addEventListener("storage", e => {
-        if (e.key === "cricscanner_matches") {
-          console.log("🔄 Matches updated");
-          renderMatches("Live");
-        }
+        if (e.key === "cricscanner_matches") renderMatches("Live");
       });
     });
   </script>
 
-  <!-- Auto updater (keeps data fresh) -->
   <script src="/public/js/auto-updater.js"></script>
 </body>
 </html>
