@@ -1,117 +1,71 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CricScanner Live</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
-  <script src="/public/js/storage.js"></script>
-</head>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const matchesContainer = document.getElementById("matches");
+    const tournamentsContainer = document.getElementById("tournaments");
+    const tabButtons = document.querySelectorAll(".tab-btn");
 
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
-  <main class="max-w-6xl mx-auto px-6 py-10">
+    // ✅ Load data from localStorage
+    const matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
+    const tournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
 
-    <h1 class="text-4xl font-bold text-emerald-400 mb-10">🏏 CricScanner Live</h1>
+    // 🏆 Render Tournaments
+    tournamentsContainer.innerHTML =
+      tournaments.length > 0
+        ? tournaments
+            .slice(0, 6)
+            .map(
+              (t) => `
+          <div class="px-6 py-3 bg-slate-800 rounded-full text-white text-lg font-semibold">
+            ${t.name || "Unknown Tournament"}
+          </div>`
+            )
+            .join("")
+        : `<p class="text-slate-500">No tournaments available right now.</p>`;
 
-    <!-- 🔥 Popular Tournaments -->
-    <section class="mb-10">
-      <h2 class="text-2xl font-semibold mb-4 text-white">ALL Tournaments</h2>
-      <div id="tournaments" class="flex flex-wrap gap-3"></div>
-    </section>
+    // 🧠 Render Matches
+    function renderMatches(status = "Live") {
+      let filtered = matches.filter((m) => {
+        if (!status || status === "Live") return m.status?.toLowerCase().includes("live");
+        if (status === "Upcoming") return m.status?.toLowerCase().includes("upcoming");
+        if (status === "Completed" || status === "Recent") return m.status?.toLowerCase().includes("complete");
+        return true;
+      });
 
-    <!-- 🏏 Match Section -->
-    <section>
-      <h2 class="text-2xl font-semibold mb-3 text-white">Matches</h2>
+      // 🧩 Show top 6 matches
+      const featuredMatches = filtered.slice(0, 6);
 
-      <!-- Tabs -->
-      <div class="flex gap-3 mb-6">
-        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Live">Live</button>
-        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Upcoming">Upcoming</button>
-        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Completed">Recent</button>
-      </div>
-
-      <!-- Matches Wrapper -->
-      <div id="matches" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
-    </section>
-
-  </main>
-
-  <script>
-    const { DateTime } = luxon;
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const matchesContainer = document.getElementById("matches");
-      const tournamentsContainer = document.getElementById("tournaments");
-
-      const tabButtons = document.querySelectorAll(".tab-btn");
-      let allMatches = [];
-
-      // 🎯 Load data from localStorage
-      const storedMatches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
-      const storedTournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
-
-      allMatches = storedMatches;
-
-      // 🏆 Render tournaments (popular ones)
-      const popularTours = ["BBL", "INDvAUS", "The Ashes", "WBBL", "Abu Dhabi T10"];
-      const toursToShow = storedTournaments.length
-        ? storedTournaments.filter(t => popularTours.includes(t.name))
-        : popularTours.map(name => ({ name }));
-
-      tournamentsContainer.innerHTML = toursToShow
-        .map(t => `
-          <button class="bg-slate-800 hover:bg-emerald-600 transition text-white px-5 py-2 rounded-full text-lg">
-            ${t.name}
-          </button>
-        `)
-        .join("");
-
-      // 🏏 Function to render matches
-      function renderMatches(status = "Live") {
-        const filtered = allMatches.filter(m => {
-          const s = (m.status || "").toLowerCase();
-          if (status === "Live") return s.includes("live");
-          if (status === "Upcoming") return s.includes("not started") || s.includes("scheduled");
-          if (status === "Completed") return s.includes("complete") || s.includes("ended");
-          return true;
-        });
-
-        // Show only popular matches on homepage (e.g., IND, AUS, ENG, PAK)
-        const featuredTeams = ["India", "Australia", "England", "Pakistan"];
-        const featuredMatches = filtered.filter(m =>
-          featuredTeams.some(team =>
-            (m.teamA || "").includes(team) || (m.teamB || "").includes(team)
-          )
-        ).slice(0, 6); // show top 6
-
-        matchesContainer.innerHTML = featuredMatches.length
-          ? featuredMatches.map(m => `
+      matchesContainer.innerHTML =
+        featuredMatches.length > 0
+          ? featuredMatches
+              .map(
+                (m) => `
             <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:shadow-glow transition">
-              <h3 class="text-xl font-bold">${m.teamA} vs ${m.teamB}</h3>
-              <p class="text-slate-400 mt-1">${m.status || "Upcoming match"}</p>
-              <p class="text-slate-500 text-sm">${m.venue || ""}</p>
-              ${m.startTime
-                ? `<p class="text-slate-400 text-xs mt-1">Start: ${DateTime.fromISO(m.startTime).toFormat("ccc, LLL dd • hh:mm a")}</p>`
-                : ""}
-            </div>
-          `).join("")
+              <h3 class="text-xl font-bold text-white">
+                ${m.teamInfo?.[0]?.name || m.teamA || "Team A"} 
+                vs 
+                ${m.teamInfo?.[1]?.name || m.teamB || "Team B"}
+              </h3>
+              <p class="text-slate-400 text-sm mt-1">${m.status || "Match info unavailable"}</p>
+              <p class="text-slate-500 text-xs mt-1">${m.venue?.name || ""}</p>
+            </div>`
+              )
+              .join("")
           : `<p class="text-slate-500">No ${status.toLowerCase()} matches right now.</p>`;
-      }
+    }
 
-      // Default tab
-      renderMatches("Live");
+    // 🟢 Default tab load
+    renderMatches("Live");
 
-      // Tab switching
-      tabButtons.forEach(btn => {
-        btn.addEventListener("click", () => {
-          tabButtons.forEach(b => b.classList.remove("bg-emerald-500", "text-slate-900"));
-          btn.classList.add("bg-emerald-500", "text-slate-900");
-          renderMatches(btn.dataset.status);
-        });
+    // 🟣 Tab switching
+    tabButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabButtons.forEach((b) => b.classList.remove("bg-emerald-500", "text-slate-900"));
+        btn.classList.add("bg-emerald-500", "text-slate-900");
+        renderMatches(btn.dataset.status);
       });
     });
-  </script>
-  <script src="/public/js/auto-updater.js"></script>
-</body>
-</html>
+  });
+</script>
+
+<!-- Keep auto-updater active -->
+<script src="/public/js/auto-updater.js"></script>
