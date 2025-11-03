@@ -3,142 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CricScanner Live Dashboard</title>
-
-  <!-- Tailwind CSS -->
+  <title>CricScanner Live</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['"Inter"', 'system-ui', 'sans-serif'] },
-          boxShadow: { glow: '0 0 40px -10px rgba(34, 211, 238, 0.45)' },
-        },
-      },
-    };
-  </script>
-
-  <!-- Luxon for time formatting -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
-
-  <!-- Storage helper (if needed) -->
-  <script src="js/storage.js"></script>
-  <!-- Auto-updater script -->
-  <script src="js/auto-updater.js"></script>
+  <script src="/public/js/storage.js"></script>
 </head>
 
-<body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
-  <main class="max-w-5xl mx-auto px-6 py-10">
-    <h1 class="text-4xl font-bold text-emerald-400 mb-10 flex items-center gap-3">
-      🏏 CricScanner Live Dashboard
-    </h1>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+  <main class="max-w-6xl mx-auto px-6 py-10">
 
-    <div class="flex justify-between items-center mb-8">
-      <p class="text-sm text-slate-400">Real-time cricket data synced from CricAPI & Admin Panel.</p>
-      <button id="refresh-btn"
-        class="bg-emerald-500 hover:bg-emerald-400 transition px-5 py-2 rounded-full font-semibold text-slate-900">
-        Refresh
-      </button>
-    </div>
+    <h1 class="text-4xl font-bold text-emerald-400 mb-10">🏏 CricScanner Live</h1>
 
-    <!-- Tournaments -->
+    <!-- 🔥 Popular Tournaments -->
+    <section class="mb-10">
+      <h2 class="text-2xl font-semibold mb-4 text-white">ALL Tournaments</h2>
+      <div id="tournaments" class="flex flex-wrap gap-3"></div>
+    </section>
+
+    <!-- 🏏 Match Section -->
     <section>
-      <h2 class="text-2xl font-semibold text-emerald-300 mb-3">Tournaments</h2>
-      <div id="tournaments-wrapper" class="grid gap-4"></div>
-    </section>
+      <h2 class="text-2xl font-semibold mb-3 text-white">Matches</h2>
 
-    <!-- Matches -->
-    <section class="mt-12">
-      <div class="flex justify-between items-center">
-        <h2 class="text-2xl font-semibold text-sky-300 mb-3">Live Matches</h2>
-        <p id="lastUpdated" class="text-sm text-slate-500"></p>
+      <!-- Tabs -->
+      <div class="flex gap-3 mb-6">
+        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Live">Live</button>
+        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Upcoming">Upcoming</button>
+        <button class="tab-btn bg-slate-700 px-4 py-2 rounded-full font-semibold" data-status="Completed">Recent</button>
       </div>
-      <div id="matches-wrapper" class="grid gap-4"></div>
+
+      <!-- Matches Wrapper -->
+      <div id="matches" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
     </section>
 
-    <footer class="mt-16 text-center text-slate-500 text-sm">
-      CricScanner • Powered by CricAPI & Local Storage
-    </footer>
   </main>
 
   <script>
     const { DateTime } = luxon;
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      const tournamentsContainer = document.getElementById("tournaments-wrapper");
-      const matchesContainer = document.getElementById("matches-wrapper");
-      const refreshBtn = document.getElementById("refresh-btn");
-      const lastUpdatedEl = document.getElementById("lastUpdated");
+    document.addEventListener("DOMContentLoaded", () => {
+      const matchesContainer = document.getElementById("matches");
+      const tournamentsContainer = document.getElementById("tournaments");
 
-      async function loadDashboard() {
-        let matches = [];
-        let tournaments = [];
+      const tabButtons = document.querySelectorAll(".tab-btn");
+      let allMatches = [];
 
-        try {
-          // ✅ 1. Load data from localStorage (auto-updater saves this)
-          const storedMatches = localStorage.getItem("matches");
-          const storedTournaments = localStorage.getItem("tournaments");
-          const lastUpdateTime = localStorage.getItem("lastUpdateTime");
+      // 🎯 Load data from localStorage
+      const storedMatches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
+      const storedTournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
 
-          if (storedMatches) matches = JSON.parse(storedMatches);
-          if (storedTournaments) tournaments = JSON.parse(storedTournaments);
+      allMatches = storedMatches;
 
-          if (lastUpdateTime && lastUpdatedEl) {
-            const t = new Date(parseInt(lastUpdateTime, 10));
-            lastUpdatedEl.textContent = `Last updated: ${t.toLocaleString()}`;
-          }
+      // 🏆 Render tournaments (popular ones)
+      const popularTours = ["BBL", "INDvAUS", "The Ashes", "WBBL", "Abu Dhabi T10"];
+      const toursToShow = storedTournaments.length
+        ? storedTournaments.filter(t => popularTours.includes(t.name))
+        : popularTours.map(name => ({ name }));
 
-          // ✅ 2. If empty, fallback to static JSON (optional)
-          if (matches.length === 0) {
-            const matchRes = await fetch("/data/matches.json");
-            if (matchRes.ok) matches = await matchRes.json();
-          }
-          if (tournaments.length === 0) {
-            const tourRes = await fetch("/data/tournaments.json");
-            if (tourRes.ok) tournaments = await tourRes.json();
-          }
-        } catch (err) {
-          console.error("❌ Error loading dashboard data:", err);
-        }
+      tournamentsContainer.innerHTML = toursToShow
+        .map(t => `
+          <button class="bg-slate-800 hover:bg-emerald-600 transition text-white px-5 py-2 rounded-full text-lg">
+            ${t.name}
+          </button>
+        `)
+        .join("");
 
-        // 🏆 Render Tournaments
-        tournamentsContainer.innerHTML = tournaments.length
-          ? tournaments.map(t => `
-            <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow shadow-sky-900/30">
-              <h3 class="text-xl font-semibold text-white">${t.name}</h3>
-              <p class="text-sm text-slate-400 mt-1">${t.location || 'Global venues'}</p>
-              ${t.description ? `<p class="text-slate-300 mt-2">${t.description}</p>` : ''}
+      // 🏏 Function to render matches
+      function renderMatches(status = "Live") {
+        const filtered = allMatches.filter(m => {
+          const s = (m.status || "").toLowerCase();
+          if (status === "Live") return s.includes("live");
+          if (status === "Upcoming") return s.includes("not started") || s.includes("scheduled");
+          if (status === "Completed") return s.includes("complete") || s.includes("ended");
+          return true;
+        });
+
+        // Show only popular matches on homepage (e.g., IND, AUS, ENG, PAK)
+        const featuredTeams = ["India", "Australia", "England", "Pakistan"];
+        const featuredMatches = filtered.filter(m =>
+          featuredTeams.some(team =>
+            (m.teamA || "").includes(team) || (m.teamB || "").includes(team)
+          )
+        ).slice(0, 6); // show top 6
+
+        matchesContainer.innerHTML = featuredMatches.length
+          ? featuredMatches.map(m => `
+            <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:shadow-glow transition">
+              <h3 class="text-xl font-bold">${m.teamA} vs ${m.teamB}</h3>
+              <p class="text-slate-400 mt-1">${m.status || "Upcoming match"}</p>
+              <p class="text-slate-500 text-sm">${m.venue || ""}</p>
+              ${m.startTime
+                ? `<p class="text-slate-400 text-xs mt-1">Start: ${DateTime.fromISO(m.startTime).toFormat("ccc, LLL dd • hh:mm a")}</p>`
+                : ""}
             </div>
-          `).join('')
-          : `<p class="text-slate-500">No tournaments found yet.</p>`;
-
-        // 🏏 Render Matches
-        matchesContainer.innerHTML = matches.length
-          ? matches.map(m => {
-              const teams = m.teamInfo?.map(t => t.name).join(" vs ") || `${m.teamA || 'Team A'} vs ${m.teamB || 'Team B'}`;
-              return `
-                <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow shadow-blue-900/30 hover:shadow-glow transition">
-                  <h4 class="text-lg font-semibold text-white">${m.name || teams}</h4>
-                  <p class="text-slate-400 mt-1">${m.status || 'Upcoming match'}</p>
-                  <p class="text-slate-500 text-sm">${m.venue || ''}</p>
-                  ${m.date ? `<p class="text-slate-400 text-xs mt-1">Match Date: ${DateTime.fromISO(m.date).toFormat("ccc, LLL dd • hh:mm a")}</p>` : ''}
-                </div>
-              `;
-            }).join('')
-          : `<p class="text-slate-500">No matches available.</p>`;
+          `).join("")
+          : `<p class="text-slate-500">No ${status.toLowerCase()} matches right now.</p>`;
       }
 
-      // Initial load
-      await loadDashboard();
+      // Default tab
+      renderMatches("Live");
 
-      // Manual & Auto Refresh
-      refreshBtn.addEventListener("click", loadDashboard);
-      setInterval(loadDashboard, 60000); // refresh every 60s
-
-      // Auto-update on localStorage change
-      window.addEventListener("storage", e => {
-        if (e.key === "matches" || e.key === "tournaments") loadDashboard();
+      // Tab switching
+      tabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          tabButtons.forEach(b => b.classList.remove("bg-emerald-500", "text-slate-900"));
+          btn.classList.add("bg-emerald-500", "text-slate-900");
+          renderMatches(btn.dataset.status);
+        });
       });
     });
   </script>
