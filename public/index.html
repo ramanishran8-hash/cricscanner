@@ -30,7 +30,7 @@
         </div>
 
         <!-- Matches -->
-        <div id="matches" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        <div id="matches" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
       </section>
     </main>
 
@@ -44,6 +44,7 @@
         let matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
         let tournaments = JSON.parse(localStorage.getItem("cricscanner_tournaments") || "[]");
 
+        // 🏆 Render Tournaments
         function renderTournaments() {
           tournamentsContainer.innerHTML =
             tournaments.length > 0
@@ -56,24 +57,17 @@
               : `<p class="text-slate-500">No tournaments available right now.</p>`;
         }
 
-        // ✅ Smarter classification — detects status dynamically
+        // 🧠 Match classifier
         function classifyMatch(m) {
           const s = (m.status || "").toLowerCase();
           if (!s) return "upcoming";
-
-          if (s.includes("won") || s.includes("result") || s.includes("draw") || s.includes("abandoned") || s.includes("complete") || s.includes("finished") || s.includes("no result")) {
+          if (s.includes("won") || s.includes("result") || s.includes("draw") || s.includes("abandoned") || s.includes("complete") || s.includes("finished") || s.includes("no result"))
             return "recent";
-          }
-          if (s.includes("live") || s.includes("inning") || s.includes("stump") || s.includes("day") || s.includes("break")) {
-            return "live";
-          }
-          if (s.includes("upcoming") || s.includes("scheduled") || s.includes("start") || s.includes("fixture") || s.includes("match not started") || s.includes("yet to start") || s.includes("starts in") || s.includes("to be played") || s.includes("vs")) {
-            return "upcoming";
-          }
-          // fallback
+          if (s.includes("live") || s.includes("inning") || s.includes("stump") || s.includes("day") || s.includes("break")) return "live";
           return "upcoming";
         }
 
+        // 🎨 Render modern match cards
         function renderMatches(status = "Live") {
           const filtered = matches.filter((m) => classifyMatch(m) === status.toLowerCase());
           const show = filtered.slice(0, 6);
@@ -83,9 +77,30 @@
               ? show
                   .map(
                     (m) => `
-                    <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:shadow-lg transition">
-                      <h3 class="text-xl font-bold text-white">${m.teamInfo?.[0]?.name || m.teamA} vs ${m.teamInfo?.[1]?.name || m.teamB}</h3>
-                      <p class="text-slate-400 text-sm mt-1">${m.status || "No info"}</p>
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:scale-[1.02] hover:border-emerald-500 transition-transform duration-200">
+                      <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs uppercase tracking-wide ${
+                          status === "Live"
+                            ? "text-red-400"
+                            : status === "Upcoming"
+                            ? "text-yellow-400"
+                            : "text-slate-400"
+                        }">${status}</span>
+                        <span class="text-xs text-slate-500">${m.matchType?.toUpperCase() || "T20"}</span>
+                      </div>
+
+                      <div class="flex flex-col gap-2 mb-2">
+                        <div class="flex justify-between">
+                          <p class="font-semibold text-lg text-white">${m.teamInfo?.[0]?.name || m.teamA}</p>
+                          <p class="text-slate-400 text-sm">${m.score?.[0]?.r || ""}${m.score?.[0]?.w ? "/" + m.score?.[0]?.w : ""}</p>
+                        </div>
+                        <div class="flex justify-between">
+                          <p class="font-semibold text-lg text-white">${m.teamInfo?.[1]?.name || m.teamB}</p>
+                          <p class="text-slate-400 text-sm">${m.score?.[1]?.r || ""}${m.score?.[1]?.w ? "/" + m.score?.[1]?.w : ""}</p>
+                        </div>
+                      </div>
+
+                      <p class="text-slate-400 text-sm mt-2">${m.status || "No info available"}</p>
                       <p class="text-slate-500 text-xs mt-1">${m.venue?.name || ""}</p>
                       ${
                         m.startTime
@@ -109,6 +124,7 @@
           });
         });
 
+        // 🔄 Auto-refresh from localStorage updates
         window.addEventListener("storage", (e) => {
           if (e.key === "cricscanner_matches") {
             matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
