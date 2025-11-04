@@ -98,3 +98,61 @@
           ) {
             upcoming.push(m);
           } else if (
+            status.includes("result") ||
+            status.includes("completed") ||
+            status.includes("match ended") ||
+            status.includes("won by") ||
+            status.includes("tied")
+          ) {
+            recent.push(m);
+          }
+        });
+
+        // 🏏 Live Matches
+        liveWrapper.innerHTML = live.length
+          ? live.map(m => `
+              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-emerald-900/40">
+                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
+                <p class="text-sm text-emerald-400 mt-1">${m.status}</p>
+                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
+                <a href="${m.matchLink || '#'}" target="_blank" class="text-emerald-300 underline text-sm mt-2 block">View Full Scorecard</a>
+              </div>
+            `).join("")
+          : `<p class="text-slate-500">No live matches right now.</p>`;
+
+        // 🗓️ Upcoming Matches
+        upcomingWrapper.innerHTML = upcoming.length
+          ? upcoming.map(m => `
+              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-blue-900/40">
+                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
+                <p class="text-sm text-sky-400 mt-1">${m.status}</p>
+                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
+              </div>
+            `).join("")
+          : `<p class="text-slate-500">No upcoming matches found.</p>`;
+
+        // 📜 Recent Matches
+        recentWrapper.innerHTML = recent.length
+          ? recent.map(m => `
+              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-amber-900/40">
+                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
+                <p class="text-sm text-amber-400 mt-1">${m.status}</p>
+                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
+                ${m.score ? `<p class="text-slate-300 mt-1 text-sm">Score: ${m.score}</p>` : ""}
+              </div>
+            `).join("")
+          : `<p class="text-slate-500">No recent matches found.</p>`;
+      }
+
+      // Initial Load
+      renderDashboard();
+
+      // Manual Refresh
+      refreshBtn.addEventListener("click", renderDashboard);
+
+      // Auto Refresh every minute
+      setInterval(renderDashboard, 60000);
+    });
+  </script>
+</body>
+</html>
