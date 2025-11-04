@@ -1,7 +1,7 @@
 // 🏏 CricScanner Auto Updater — CricketData Integration
 // Fetches Live, Upcoming Matches & Series every 30 minutes (API limit safe)
 
-const API_KEY = "YOUR_API_KEY"; // 🔑 Replace with your CricketData API key
+const API_KEY = "7282955f-2245-4cc4-becb-1f22ead081fa"; // 🔑 Replace with your CricketData API key
 const updateInterval = 30 * 60 * 1000; // 30 minutes
 let fetchInProgress = false;
 
