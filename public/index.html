@@ -27,7 +27,7 @@
       </button>
     </header>
 
-    <!-- Featured Series -->
+    <!-- Featured Tournaments -->
     <section>
       <h2 class="text-2xl font-semibold text-sky-400 mb-4">🔥 Featured Tournaments</h2>
       <div id="seriesWrapper" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
@@ -80,69 +80,21 @@
             `).join("")
           : `<p class="text-slate-500">No tournaments found.</p>`;
 
-        // 🏏 Live Matches
-        const live = matches.filter(m => 
-          m.status && (m.status.toLowerCase().includes("live") || m.status.toLowerCase().includes("in progress"))
-        );
-        liveWrapper.innerHTML = live.length
-          ? live.map(m => `
-              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-emerald-900/40">
-                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
-                <p class="text-sm text-emerald-400 mt-1">${m.status}</p>
-                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
-                <a href="${m.matchLink || '#'}" target="_blank" class="text-emerald-300 underline text-sm mt-2 block">View Full Scorecard</a>
-              </div>
-            `).join("")
-          : `<p class="text-slate-500">No live matches right now.</p>`;
+        // ⚙️ Classify matches based on status
+        const live = [];
+        const upcoming = [];
+        const recent = [];
 
-        // 🗓️ Upcoming Matches
-        const upcoming = matches.filter(m =>
-          m.status && (
-            m.status.toLowerCase().includes("upcoming") ||
-            m.status.toLowerCase().includes("scheduled") ||
-            m.status.toLowerCase().includes("fixture") ||
-            m.status.toLowerCase().includes("yet to start")
-          )
-        );
-        upcomingWrapper.innerHTML = upcoming.length
-          ? upcoming.map(m => `
-              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-blue-900/40">
-                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
-                <p class="text-sm text-sky-400 mt-1">${m.status}</p>
-                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
-              </div>
-            `).join("")
-          : `<p class="text-slate-500">No upcoming matches found.</p>`;
+        matches.forEach(m => {
+          const status = m.status?.toLowerCase() || "";
 
-        // 📜 Recent Matches (Finished)
-        const recent = matches.filter(m =>
-          m.status && (
-            m.status.toLowerCase().includes("completed") ||
-            m.status.toLowerCase().includes("finished") ||
-            m.status.toLowerCase().includes("result")
-          )
-        );
-        recentWrapper.innerHTML = recent.length
-          ? recent.map(m => `
-              <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-amber-900/40">
-                <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
-                <p class="text-sm text-amber-400 mt-1">${m.status}</p>
-                <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
-                ${m.score ? `<p class="text-slate-300 mt-1 text-sm">Score: ${m.score}</p>` : ""}
-              </div>
-            `).join("")
-          : `<p class="text-slate-500">No recent matches found.</p>`;
-      }
-
-      // Initial Load
-      renderDashboard();
-
-      // Manual Refresh
-      refreshBtn.addEventListener("click", renderDashboard);
-
-      // Auto Refresh every minute
-      setInterval(renderDashboard, 60000);
-    });
-  </script>
-</body>
-</html>
+          if (status.includes("live") || status.includes("in progress")) {
+            live.push(m);
+          } else if (
+            status.includes("fixture") ||
+            status.includes("scheduled") ||
+            status.includes("match yet to start") ||
+            status.includes("upcoming")
+          ) {
+            upcoming.push(m);
+          } else if (
