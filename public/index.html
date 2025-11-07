@@ -22,9 +22,12 @@
   <main class="max-w-6xl mx-auto px-6 py-10">
     <header class="flex justify-between items-center mb-10">
       <h1 class="text-4xl font-bold text-emerald-400">🏏 CricScanner</h1>
-      <button id="refreshBtn" class="bg-emerald-500 text-slate-900 px-4 py-2 rounded-full hover:bg-emerald-400 transition">
-        Refresh
-      </button>
+      <div class="flex flex-col items-end">
+        <button id="refreshBtn" class="bg-emerald-500 text-slate-900 px-4 py-2 rounded-full hover:bg-emerald-400 transition">
+          Refresh
+        </button>
+        <p id="lastUpdated" class="text-slate-500 text-xs mt-2"></p>
+      </div>
     </header>
 
     <!-- Featured Tournaments -->
@@ -56,15 +59,19 @@
     </footer>
   </main>
 
+  <!-- ✅ CricScanner Scripts -->
+  <script src="./js/auto-updater.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const refreshBtn = document.getElementById("refreshBtn");
+      const lastUpdatedEl = document.getElementById("lastUpdated");
       const seriesWrapper = document.getElementById("seriesWrapper");
       const liveWrapper = document.getElementById("liveWrapper");
       const upcomingWrapper = document.getElementById("upcomingWrapper");
       const recentWrapper = document.getElementById("recentWrapper");
 
-      function renderDashboard() {
+      // Expose globally
+      window.renderDashboard = function renderDashboard() {
         const matches = JSON.parse(localStorage.getItem("cricscanner_matches") || "[]");
         const series = JSON.parse(localStorage.getItem("cricscanner_series") || "[]");
 
@@ -80,42 +87,22 @@
             `).join("")
           : `<p class="text-slate-500">No tournaments found.</p>`;
 
-        // ⚙️ Classify matches based on status
-        const live = [];
-        const upcoming = [];
-        const recent = [];
-
+        // 🧩 Classify matches
+        const live = [], upcoming = [], recent = [];
         matches.forEach(m => {
-          const status = m.status?.toLowerCase() || "";
-
-          if (status.includes("live") || status.includes("in progress")) {
-            live.push(m);
-          } else if (
-            status.includes("fixture") ||
-            status.includes("scheduled") ||
-            status.includes("match yet to start") ||
-            status.includes("upcoming")
-          ) {
-            upcoming.push(m);
-          } else if (
-            status.includes("result") ||
-            status.includes("completed") ||
-            status.includes("match ended") ||
-            status.includes("won by") ||
-            status.includes("tied")
-          ) {
-            recent.push(m);
-          }
+          const status = (m.status || "").toLowerCase();
+          if (status.includes("live") || status.includes("progress")) live.push(m);
+          else if (status.includes("fixture") || status.includes("upcoming") || status.includes("scheduled")) upcoming.push(m);
+          else if (status.includes("won") || status.includes("result") || status.includes("completed")) recent.push(m);
         });
 
-        // 🏏 Live Matches
+        // 🏆 Live Matches
         liveWrapper.innerHTML = live.length
           ? live.map(m => `
               <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/70 shadow shadow-emerald-900/40">
                 <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
                 <p class="text-sm text-emerald-400 mt-1">${m.status}</p>
                 <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
-                <a href="${m.matchLink || '#'}" target="_blank" class="text-emerald-300 underline text-sm mt-2 block">View Full Scorecard</a>
               </div>
             `).join("")
           : `<p class="text-slate-500">No live matches right now.</p>`;
@@ -138,20 +125,29 @@
                 <h4 class="text-lg font-semibold text-white">${m.name || `${m.teams?.[0]} vs ${m.teams?.[1]}`}</h4>
                 <p class="text-sm text-amber-400 mt-1">${m.status}</p>
                 <p class="text-slate-400 text-xs">${m.venue || "Venue TBD"}</p>
-                ${m.score ? `<p class="text-slate-300 mt-1 text-sm">Score: ${m.score}</p>` : ""}
               </div>
             `).join("")
           : `<p class="text-slate-500">No recent matches found.</p>`;
-      }
 
-      // Initial Load
-      renderDashboard();
+        // 🕒 Update timestamp
+        const lastUpdated = localStorage.getItem("cricscanner_lastUpdate");
+        if (lastUpdated) {
+          lastUpdatedEl.textContent = "Last updated: " + new Date(lastUpdated).toLocaleString();
+        }
+      };
 
-      // Manual Refresh
-      refreshBtn.addEventListener("click", renderDashboard);
+      // Manual refresh
+      refreshBtn.addEventListener("click", async () => {
+        refreshBtn.innerText = "Refreshing...";
+        await fetchLatestData();
+        refreshBtn.innerText = "Refresh";
+      });
 
-      // Auto Refresh every minute
-      setInterval(renderDashboard, 60000);
+      // Initial render
+      window.renderDashboard();
+
+      // Auto-refresh UI every 60s
+      setInterval(() => window.renderDashboard(), 60000);
     });
   </script>
 </body>
