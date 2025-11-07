@@ -1,0 +1,5 @@
+[
+  { "id": "bbl2026", "fullName": "Big Bash League 2026", "shortName": "BBL", "active": true },
+  { "id": "ipl2026", "fullName": "Indian Premier League 2026", "shortName": "IPL", "active": true },
+  { "id": "psl2026", "fullName": "Pakistan Super League 2026", "shortName": "PSL", "active": false }
+]
