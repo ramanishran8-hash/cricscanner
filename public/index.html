@@ -151,6 +151,8 @@
         const seriesModalBody = document.getElementById('seriesModalBody');
         const seriesModalClose = document.getElementById('seriesModalClose');
 
+        const SERIES_MAP_STORAGE_KEY = 'cricscanner:series-map';
+
         let activeTab = 'live';
         let latestMatches = [];
         let seriesMapCache = null;
@@ -176,6 +178,22 @@
           if (Array.isArray(seriesMapCache)) {
             return seriesMapCache;
           }
+
+          if (window.localStorage) {
+            const stored = window.localStorage.getItem(SERIES_MAP_STORAGE_KEY);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                  seriesMapCache = parsed;
+                  return seriesMapCache;
+                }
+              } catch (error) {
+                console.warn('Unable to parse stored series map.', error);
+              }
+            }
+          }
+
           try {
             const response = await fetch('data/series-map.json', { cache: 'no-store' });
             if (!response.ok) {
@@ -185,6 +203,9 @@
             }
             const payload = await response.json();
             seriesMapCache = Array.isArray(payload) ? payload : [];
+            if (window.localStorage && !window.localStorage.getItem(SERIES_MAP_STORAGE_KEY)) {
+              window.localStorage.setItem(SERIES_MAP_STORAGE_KEY, JSON.stringify(seriesMapCache));
+            }
           } catch (error) {
             console.warn('Unable to load series map.', error);
             seriesMapCache = [];
@@ -696,7 +717,12 @@
           button.addEventListener('click', () => setActiveTab(button.dataset.tab));
         });
 
-        window.addEventListener('storage', () => renderMatches());
+        window.addEventListener('storage', (event) => {
+          if (!event || event.key === SERIES_MAP_STORAGE_KEY) {
+            seriesMapCache = null;
+          }
+          renderMatches();
+        });
         window.addEventListener('cricscanner:matches-synced', () => {
           renderMatches();
         });
