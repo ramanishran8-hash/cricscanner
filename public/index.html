@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cricscanner | Live Cricket Pulse</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['\"Inter\"', 'system-ui', 'sans-serif'],
+            },
+            colors: {
+              midnight: '#0a101f',
+              emeraldGlow: '#2dd4bf',
+            },
+            boxShadow: {
+              glow: '0 0 40px -10px rgba(34, 211, 238, 0.45)',
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js" defer></script>
+    <script src="js/storage.js" defer></script>
+  </head>
+  <body class="bg-gradient-to-br from-slate-950 via-slate-950 to-blue-950 text-slate-100 min-h-screen">
+    <header class="border-b border-slate-800/60 bg-slate-950/70 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200 shadow-glow">
+            Cricket Intelligence
+          </div>
+          <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Cricscanner</h1>
+          <p class="mt-3 max-w-2xl text-base text-slate-300 sm:text-lg">
+            Follow upcoming fixtures, experience the thrill of live encounters, and catch the results the moment they drop. Powered by Eastern Time updates every minute.
+          </p>
+        </div>
+        <div class="flex flex-col gap-3 text-sm text-slate-400 sm:text-right">
+          <a href="tournaments.html" class="font-semibold text-emerald-300 transition hover:text-emerald-200">Browse tournaments →</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-6 py-12">
+      <section class="mb-12">
+        <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200/70">Featured Series</p>
+            <h2 class="mt-2 text-3xl font-semibold text-white sm:text-4xl">Spotlight on the season</h2>
+          </div>
+          <p class="text-sm text-slate-400">Tap a badge to explore fixtures and results.</p>
+        </div>
+        <div id="featuredSeriesWrapper" class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4"></div>
+        <p
+          id="featuredSeriesEmpty"
+          class="mt-6 hidden rounded-3xl border border-slate-800/60 bg-slate-900/40 p-8 text-center text-sm text-slate-400"
+        >
+          No active series found in map.
+        </p>
+      </section>
+      <section>
+        <div class="flex flex-wrap gap-3 rounded-full border border-slate-800/60 bg-slate-900/60 p-1 text-sm font-semibold text-slate-300 shadow-inner">
+          <button
+            type="button"
+            data-tab="upcoming"
+            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
+          >
+            Upcoming
+          </button>
+          <button
+            type="button"
+            data-tab="live"
+            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            data-tab="completed"
+            class="tab-button flex-1 rounded-full px-4 py-2 text-center transition hover:text-white"
+          >
+            Completed
+          </button>
+        </div>
+
+        <div id="matchesWrapper" class="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-3"></div>
+        <p id="emptyState" class="mt-10 hidden rounded-2xl border border-slate-800/60 bg-slate-900/40 p-10 text-center text-base text-slate-400">
+          Nothing to display yet. Check back soon for the latest fixtures.
+        </p>
+      </section>
+    </main>
+
+    <footer class="border-t border-slate-800/60 bg-slate-950/70">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <p>Updated every minute • Eastern Time</p>
+        <p>Built with TailwindCSS and Luxon</p>
+      </div>
+    </footer>
+
+    <div
+      id="seriesModal"
+      class="fixed inset-0 z-50 hidden flex items-center justify-center p-6"
+      aria-hidden="true"
+    >
+      <div
+        id="seriesModalBackdrop"
+        class="absolute inset-0 bg-slate-950/80 backdrop-blur"
+      ></div>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="seriesModalTitle"
+        class="relative z-10 w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-800/60 bg-slate-950/90 shadow-2xl shadow-blue-900/40"
+      >
+        <div class="flex items-start justify-between gap-6 border-b border-slate-800/60 bg-slate-950/60 px-6 py-5">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200/70">Series spotlight</p>
+            <h3 id="seriesModalTitle" class="mt-2 text-3xl font-semibold text-white"></h3>
+            <p id="seriesModalSubtitle" class="mt-1 text-sm text-slate-400"></p>
+          </div>
+          <button
+            id="seriesModalClose"
+            type="button"
+            class="rounded-full border border-slate-700 bg-slate-900/60 p-2 text-slate-300 transition hover:border-emerald-400/60 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+            aria-label="Close series details"
+          >
+            ✕
+          </button>
+        </div>
+        <div id="seriesModalBody" class="max-h-[65vh] overflow-y-auto bg-slate-950/80 px-6 py-6"></div>
+      </div>
+    </div>
+
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const { DateTime } = luxon;
+        const tabs = document.querySelectorAll('.tab-button');
+        const matchesWrapper = document.getElementById('matchesWrapper');
+        const emptyState = document.getElementById('emptyState');
+        const featuredWrapper = document.getElementById('featuredSeriesWrapper');
+        const featuredEmpty = document.getElementById('featuredSeriesEmpty');
+        const seriesModal = document.getElementById('seriesModal');
+        const seriesModalBackdrop = document.getElementById('seriesModalBackdrop');
+        const seriesModalTitle = document.getElementById('seriesModalTitle');
+        const seriesModalSubtitle = document.getElementById('seriesModalSubtitle');
+        const seriesModalBody = document.getElementById('seriesModalBody');
+        const seriesModalClose = document.getElementById('seriesModalClose');
+
+        const SERIES_MAP_STORAGE_KEY = 'cricscanner:series-map';
+
+        let activeTab = 'live';
+        let latestMatches = [];
+        let seriesMapCache = null;
+        let lastFocusedElement = null;
+
+        function escapeHtml(value) {
+          if (value === undefined || value === null) {
+            return '';
+          }
+          return String(value).replace(/[&<>"']/g, (char) => {
+            const entities = {
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            };
+            return entities[char] || char;
+          });
+        }
+
+        async function loadSeriesMap() {
+          if (Array.isArray(seriesMapCache)) {
+            return seriesMapCache;
+          }
+
+          if (window.localStorage) {
+            const stored = window.localStorage.getItem(SERIES_MAP_STORAGE_KEY);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                  seriesMapCache = parsed;
+                  return seriesMapCache;
+                }
+              } catch (error) {
+                console.warn('Unable to parse stored series map.', error);
+              }
+            }
+          }
+
+          try {
+            const response = await fetch('data/series-map.json', { cache: 'no-store' });
+            if (!response.ok) {
+              console.warn('Unable to load series map.', response.status);
+              seriesMapCache = [];
+              return seriesMapCache;
+            }
+            const payload = await response.json();
+            seriesMapCache = Array.isArray(payload) ? payload : [];
+            if (window.localStorage && !window.localStorage.getItem(SERIES_MAP_STORAGE_KEY)) {
+              window.localStorage.setItem(SERIES_MAP_STORAGE_KEY, JSON.stringify(seriesMapCache));
+            }
+          } catch (error) {
+            console.warn('Unable to load series map.', error);
+            seriesMapCache = [];
+          }
+          return seriesMapCache;
+        }
+
+        function collectSeriesNames(collection) {
+          const names = new Set();
+          if (!Array.isArray(collection)) {
+            return names;
+          }
+          collection.forEach((item) => {
+            if (!item || typeof item !== 'object') {
+              return;
+            }
+            const possible = [
+              item.series && typeof item.series === 'object' ? item.series.name : null,
+              item.series && typeof item.series === 'object' ? item.series.fullName : null,
+              item.series && typeof item.series === 'object' ? item.series.shortName : null,
+              item.series && typeof item.series === 'object' ? item.series.id : null,
+              typeof item.series === 'string' ? item.series : null,
+              item.seriesName,
+              item.seriesTitle,
+              item.seriesShortName,
+              item.seriesId,
+              item.tournament,
+              item.tournamentName,
+              item.tournamentTitle,
+            ];
+            possible.forEach((value) => {
+              if (value && typeof value === 'string') {
+                names.add(value.toLowerCase());
+              }
+            });
+          });
+          return names;
+        }
+
+        function readMatchesFromLocalStorage() {
+          if (!window.localStorage) {
+            return [];
+          }
+          const aggregated = [];
+          ['cricscanner_matches', 'cricscanner:matches', 'cricapi_matches'].forEach((key) => {
+            const raw = window.localStorage.getItem(key);
+            if (!raw) {
+              return;
+            }
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                aggregated.push(...parsed);
+              } else if (parsed && Array.isArray(parsed.matches)) {
+                aggregated.push(...parsed.matches);
+              }
+            } catch (error) {
+              console.warn(`Unable to parse matches from ${key}.`, error);
+            }
+          });
+          return aggregated;
+        }
+
+        function closeSeriesModal() {
+          if (!seriesModal) {
+            return;
+          }
+          seriesModal.classList.add('hidden');
+          seriesModal.setAttribute('aria-hidden', 'true');
+          document.body.classList.remove('overflow-hidden');
+          if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+          }
+          lastFocusedElement = null;
+        }
+
+        function openSeriesModal() {
+          if (!seriesModal) {
+            return;
+          }
+          lastFocusedElement = document.activeElement;
+          seriesModal.classList.remove('hidden');
+          seriesModal.setAttribute('aria-hidden', 'false');
+          document.body.classList.add('overflow-hidden');
+          if (seriesModalClose) {
+            seriesModalClose.focus();
+          }
+        }
+
+        if (seriesModalClose) {
+          seriesModalClose.addEventListener('click', closeSeriesModal);
+        }
+        if (seriesModalBackdrop) {
+          seriesModalBackdrop.addEventListener('click', closeSeriesModal);
+        }
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && seriesModal && !seriesModal.classList.contains('hidden')) {
+            closeSeriesModal();
+          }
+        });
+
+        async function showSeriesDetails(seriesName, shortLabel) {
+          const targetName = (seriesName || '').trim();
+          const fallbackShort = (shortLabel || '').trim();
+          if (!targetName && !fallbackShort) {
+            return;
+          }
+
+          const normalizedTargets = new Set();
+          if (targetName) {
+            normalizedTargets.add(targetName.toLowerCase());
+          }
+          if (fallbackShort) {
+            normalizedTargets.add(fallbackShort.toLowerCase());
+          }
+
+          const seriesMap = await loadSeriesMap();
+          const matchedEntry = seriesMap.find((entry) => {
+            if (!entry) {
+              return false;
+            }
+            return [entry.fullName, entry.shortName, entry.id]
+              .filter(Boolean)
+              .some((label) => normalizedTargets.has(String(label).toLowerCase()));
+          });
+
+          if (matchedEntry?.fullName) {
+            normalizedTargets.add(matchedEntry.fullName.toLowerCase());
+          }
+          if (matchedEntry?.shortName) {
+            normalizedTargets.add(matchedEntry.shortName.toLowerCase());
+          }
+          if (matchedEntry?.id) {
+            normalizedTargets.add(String(matchedEntry.id).toLowerCase());
+          }
+
+          const aggregatedMatches = [...latestMatches];
+          const storedMatches = readMatchesFromLocalStorage();
+          if (storedMatches.length) {
+            aggregatedMatches.push(...storedMatches);
+          }
+
+          const seenKeys = new Set();
+          const relevantMatches = aggregatedMatches.filter((match) => {
+            if (!match || typeof match !== 'object') {
+              return false;
+            }
+
+            const candidates = [
+              match.series && typeof match.series === 'object' ? match.series.name : null,
+              match.series && typeof match.series === 'object' ? match.series.fullName : null,
+              match.series && typeof match.series === 'object' ? match.series.shortName : null,
+              match.series && typeof match.series === 'object' ? match.series.id : null,
+              typeof match.series === 'string' ? match.series : null,
+              match.seriesName,
+              match.seriesTitle,
+              match.seriesShortName,
+              match.seriesId,
+              match.tournament,
+              match.tournamentName,
+              match.tournamentTitle,
+            ];
+
+            const matchesSeries = candidates.some((value) => {
+              if (!value || typeof value !== 'string') {
+                return false;
+              }
+              return normalizedTargets.has(value.toLowerCase());
+            });
+
+            if (!matchesSeries) {
+              return false;
+            }
+
+            const key =
+              match.id ||
+              `${match.match || match.name || ''}-${match.startTime || match.dateTimeGMT || match.date || ''}`;
+            if (seenKeys.has(key)) {
+              return false;
+            }
+            seenKeys.add(key);
+            return true;
+          });
+
+          const shortTitle = matchedEntry?.shortName || fallbackShort || targetName;
+          const fullTitle = matchedEntry?.fullName || targetName || fallbackShort;
+
+          if (seriesModalTitle) {
+            seriesModalTitle.textContent = shortTitle || 'Series';
+          }
+          if (seriesModalSubtitle) {
+            seriesModalSubtitle.textContent = fullTitle && fullTitle !== shortTitle ? fullTitle : '';
+          }
+          if (seriesModalBody) {
+            seriesModalBody.innerHTML = '';
+
+            if (!relevantMatches.length) {
+              const empty = document.createElement('p');
+              empty.className = 'text-sm text-slate-300';
+              empty.textContent = 'No matches synced for this series yet.';
+              seriesModalBody.appendChild(empty);
+            } else {
+              const fragment = document.createDocumentFragment();
+              relevantMatches.forEach((match) => {
+                const card = document.createElement('article');
+                card.className =
+                  'rounded-2xl border border-slate-800/60 bg-slate-900/70 p-6 shadow-lg shadow-blue-900/20 transition hover:border-emerald-400/60';
+
+                const matchName =
+                  match.match ||
+                  match.name ||
+                  `${match.teamA || 'Team A'} vs ${match.teamB || 'Team B'}`;
+                const venue = match.venue || match.location || 'Venue TBA';
+                const status = match.status || match.result || 'Status unavailable';
+
+                const heading = document.createElement('h3');
+                heading.className = 'text-xl font-semibold text-white';
+                heading.textContent = matchName;
+                card.appendChild(heading);
+
+                const venueEl = document.createElement('p');
+                venueEl.className = 'mt-2 text-sm text-slate-300';
+                venueEl.textContent = venue;
+                card.appendChild(venueEl);
+
+                const statusEl = document.createElement('p');
+                statusEl.className = 'mt-1 text-sm text-emerald-300';
+                statusEl.textContent = status;
+                card.appendChild(statusEl);
+
+                const scoreWrapper = document.createElement('div');
+                scoreWrapper.className = 'mt-3 text-sm text-slate-200 space-y-1';
+
+                const scoreLines = [];
+                if (match.scoreA) {
+                  scoreLines.push(`${match.teamA || 'Team A'}: ${match.scoreA}`);
+                }
+                if (match.scoreB) {
+                  scoreLines.push(`${match.teamB || 'Team B'}: ${match.scoreB}`);
+                }
+                if (!scoreLines.length && Array.isArray(match.score)) {
+                  match.score.forEach((entry) => {
+                    if (!entry || typeof entry !== 'object') {
+                      return;
+                    }
+                    const inningLabel = entry.inning ? `${entry.inning}: ` : '';
+                    const runs = entry.r ?? entry.runs ?? '';
+                    const wickets = entry.w ?? entry.wickets ?? '';
+                    const overs = entry.o ?? entry.overs ?? '';
+                    const tallyParts = [];
+                    if (runs !== '') {
+                      tallyParts.push(String(runs));
+                    }
+                    if (wickets !== '') {
+                      const wicketsLabel = tallyParts.length ? `/${wickets}` : String(wickets);
+                      tallyParts.push(wicketsLabel);
+                    }
+                    const tally = tallyParts.join('');
+                    const oversLabel = overs !== '' ? (tally ? ` (${overs} ov)` : `${overs} ov`) : '';
+                    const line = `${inningLabel}${tally}${oversLabel}`.trim();
+                    if (line) {
+                      scoreLines.push(line);
+                    }
+                  });
+                }
+
+                if (!scoreLines.length) {
+                  const scoreLine = document.createElement('p');
+                  scoreLine.textContent = 'Scores not available';
+                  scoreWrapper.appendChild(scoreLine);
+                } else {
+                  scoreLines.forEach((line) => {
+                    const scoreLine = document.createElement('p');
+                    scoreLine.textContent = line;
+                    scoreWrapper.appendChild(scoreLine);
+                  });
+                }
+
+                card.appendChild(scoreWrapper);
+                fragment.appendChild(card);
+              });
+
+              seriesModalBody.appendChild(fragment);
+            }
+          }
+
+          openSeriesModal();
+        }
+
+        window.showSeriesDetails = showSeriesDetails;
+
+        async function renderFeaturedSeries(seriesList = []) {
+          if (!featuredWrapper || !featuredEmpty) {
+            return;
+          }
+
+          const seriesMap = await loadSeriesMap();
+          const activeSeries = seriesMap.filter((entry) => entry && entry.active);
+
+          featuredWrapper.innerHTML = '';
+          featuredEmpty.classList.add('hidden');
+
+          if (!activeSeries.length) {
+            featuredEmpty.classList.remove('hidden');
+            return;
+          }
+
+          const availableSeries = collectSeriesNames(seriesList);
+
+          activeSeries.forEach((entry) => {
+            const fullLabel = entry.fullName || entry.shortName || entry.id;
+            const shortLabel = entry.shortName || fullLabel;
+            const hasMatches =
+              availableSeries.has(fullLabel.toLowerCase()) ||
+              availableSeries.has(shortLabel.toLowerCase()) ||
+              (entry.id && availableSeries.has(String(entry.id).toLowerCase()));
+
+            const card = document.createElement('article');
+            card.className =
+              'group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/60 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-slate-900/20 p-6 shadow-lg shadow-blue-900/20 transition hover:-translate-y-1 hover:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/60';
+            card.tabIndex = 0;
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', `${fullLabel} details`);
+
+            card.innerHTML = `
+              <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500/60 via-emerald-400/60 to-sky-500/60 opacity-0 transition group-hover:opacity-100"></div>
+              <div class="flex flex-col gap-3">
+                <span class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200/70">Series</span>
+                <h3 class="text-3xl font-semibold text-white">${escapeHtml(shortLabel)}</h3>
+                <p class="text-sm text-slate-400">${escapeHtml(fullLabel)}</p>
+              </div>
+              <p class="mt-6 text-sm ${hasMatches ? 'text-emerald-300' : 'text-slate-400'}">${
+                hasMatches ? 'View synced fixtures →' : 'No synced matches yet'
+              }</p>
+            `;
+
+            const handleActivate = (event) => {
+              if (event.type === 'keypress' && event.key !== 'Enter' && event.key !== ' ') {
+                return;
+              }
+              event.preventDefault();
+              showSeriesDetails(fullLabel, shortLabel).catch((error) => {
+                console.error('Unable to display series details.', error);
+              });
+            };
+
+            card.addEventListener('click', handleActivate);
+            card.addEventListener('keypress', handleActivate);
+
+            featuredWrapper.appendChild(card);
+          });
+
+          featuredEmpty.classList.add('hidden');
+        }
+
+        function resolveStatus(match, now) {
+          const start = DateTime.fromISO(match.startTime, { zone: 'America/New_York' });
+          if (!start.isValid) return 'upcoming';
+          const end = match.endTime ? DateTime.fromISO(match.endTime, { zone: 'America/New_York' }) : null;
+          if (now < start) {
+            return 'upcoming';
+          }
+          if (end && now > end) {
+            return 'completed';
+          }
+          if (!end) {
+            const assumedEnd = start.plus({ hours: 4 });
+            if (now > assumedEnd) {
+              return 'completed';
+            }
+          }
+          return 'live';
+        }
+
+        function formatDateTime(dateISO) {
+          if (!dateISO) return '—';
+          const dt = DateTime.fromISO(dateISO, { zone: 'America/New_York' });
+          if (!dt.isValid) return '—';
+          return dt.toFormat("ccc, LLL dd • hh:mm a 'ET'");
+        }
+
+        function relativeStatus(match, now) {
+          const start = DateTime.fromISO(match.startTime, { zone: 'America/New_York' });
+          if (!start.isValid) return '';
+          const diff = start.diff(now, ['days', 'hours', 'minutes']).toObject();
+          if (now < start) {
+            const parts = [];
+            if (diff.days) parts.push(`${Math.max(0, Math.floor(diff.days))}d`);
+            if (diff.hours) parts.push(`${Math.max(0, Math.floor(diff.hours))}h`);
+            if (diff.minutes) parts.push(`${Math.max(0, Math.floor(diff.minutes))}m`);
+            return parts.length ? `Starts in ${parts.join(' ')}` : 'Starts soon';
+          }
+          const end = match.endTime ? DateTime.fromISO(match.endTime, { zone: 'America/New_York' }) : start.plus({ hours: 4 });
+          if (now <= end) {
+            const elapsed = now.diff(start, ['hours', 'minutes']).toObject();
+            const elapsedParts = [];
+            if (elapsed.hours) elapsedParts.push(`${Math.max(0, Math.floor(elapsed.hours))}h`);
+            elapsedParts.push(`${Math.max(0, Math.floor(elapsed.minutes || 0))}m`);
+            return `Live for ${elapsedParts.join(' ')}`;
+          }
+          return 'Final';
+        }
+
+        function matchScores(match) {
+          if (match.scoreA || match.scoreB) {
+            return `${match.teamA}: ${match.scoreA || '—'} • ${match.teamB}: ${match.scoreB || '—'}`;
+          }
+          return 'Scores pending';
+        }
+
+        function createBadge(text, variant) {
+          const base = 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest';
+          if (variant === 'live') {
+            return `<span class="${base} border-emerald-400/50 bg-emerald-400/20 text-emerald-200 shadow-glow animate-pulse">${text}</span>`;
+          }
+          if (variant === 'completed') {
+            return `<span class="${base} border-sky-400/40 bg-sky-400/10 text-sky-200">${text}</span>`;
+          }
+          return `<span class="${base} border-slate-500/40 bg-slate-500/10 text-slate-300">${text}</span>`;
+        }
+
+        async function renderMatches() {
+          const now = DateTime.now().setZone('America/New_York');
+          const data = await window.CricStorage.getData();
+          latestMatches = Array.isArray(data.matches) ? data.matches : [];
+          await renderFeaturedSeries(latestMatches);
+          const tournamentsById = Object.fromEntries(data.tournaments.map((t) => [t.id, t]));
+          const matches = latestMatches
+            .map((match) => ({ ...match, status: resolveStatus(match, now) }))
+            .filter((match) => match.status === activeTab)
+            .sort((a, b) => DateTime.fromISO(a.startTime) - DateTime.fromISO(b.startTime));
+
+          matchesWrapper.innerHTML = '';
+
+          if (!matches.length) {
+            emptyState.classList.remove('hidden');
+            return;
+          }
+
+          emptyState.classList.add('hidden');
+
+          matches.forEach((match) => {
+            const tournament = tournamentsById[match.tournamentId];
+            const badge =
+              match.status === 'live'
+                ? createBadge('Live', 'live')
+                : match.status === 'completed'
+                ? createBadge('Completed', 'completed')
+                : createBadge('Upcoming', 'upcoming');
+
+            const relative = relativeStatus(match, now);
+            const startLabel = formatDateTime(match.startTime);
+            const endLabel = formatDateTime(match.endTime);
+            const scores = matchScores(match);
+            const location = match.location || (tournament && tournament.location) || 'Venue TBA';
+
+            const card = document.createElement('article');
+            card.className =
+              'group relative overflow-hidden rounded-3xl border border-slate-800/60 bg-slate-900/60 p-6 shadow-lg shadow-blue-900/20 transition hover:-translate-y-1 hover:border-emerald-400/60';
+            card.innerHTML = `
+              <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500/60 via-emerald-400/60 to-sky-500/60 opacity-0 transition group-hover:opacity-100"></div>
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-200/70">${
+                    tournament ? tournament.name : 'Untitled Tournament'
+                  }</p>
+                  <h3 class="mt-2 text-2xl font-semibold text-white">${match.teamA} <span class="text-slate-500">vs</span> ${match.teamB}</h3>
+                </div>
+                ${badge}
+              </div>
+              <p class="mt-3 text-sm text-slate-300">${relative}</p>
+              <dl class="mt-6 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+                <div>
+                  <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Start</dt>
+                  <dd class="mt-1 font-medium text-white">${startLabel}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">End</dt>
+                  <dd class="mt-1 font-medium text-white">${endLabel}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Venue</dt>
+                  <dd class="mt-1 font-medium text-white">${location}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs uppercase tracking-[0.25em] text-slate-500">Scores</dt>
+                  <dd class="mt-1 font-medium text-white">${scores}</dd>
+                </div>
+              </dl>
+            `;
+
+            matchesWrapper.appendChild(card);
+          });
+        }
+
+        function setActiveTab(tab) {
+          activeTab = tab;
+          tabs.forEach((button) => {
+            if (button.dataset.tab === tab) {
+              button.classList.add('bg-gradient-to-r', 'from-sky-500/20', 'to-emerald-400/20', 'text-white');
+            } else {
+              button.classList.remove('bg-gradient-to-r', 'from-sky-500/20', 'to-emerald-400/20', 'text-white');
+            }
+          });
+          renderMatches();
+        }
+
+        tabs.forEach((button) => {
+          button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+        });
+
+        window.addEventListener('storage', (event) => {
+          if (!event || event.key === SERIES_MAP_STORAGE_KEY) {
+            seriesMapCache = null;
+          }
+          renderMatches();
+        });
+        window.addEventListener('cricscanner:matches-synced', () => {
+          renderMatches();
+        });
+
+        setActiveTab('live');
+        setInterval(renderMatches, 60000);
+      });
+    </script>
+  </body>
+</html>
